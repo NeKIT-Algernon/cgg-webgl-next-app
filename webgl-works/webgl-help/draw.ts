@@ -11,6 +11,8 @@ function renderAll(gl: WebGL2RenderingContext, renderInfo: WebGLRenderInfoType, 
     ...partSceneOptions
   };
 
+  // Обновляем сцену
+  clearScene(gl);
   // Отрисовываем каждую фигуру, данные о которой получаем
   for (let i = 0; i < ((renderInfo.buffersList.length < renderInfo.programInfoList.length) ? renderInfo.buffersList.length : renderInfo.programInfoList.length); i++) {
     drawScene(gl, renderInfo.programInfoList[i], renderInfo.buffersList[i], sceneOptions);
