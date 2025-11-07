@@ -2,7 +2,8 @@ interface WebGLWork {
   id: string;
   name: string;
   controls: string[];
-  initialize: (gl: WebGL2RenderingContext, taskNum?: number) => void;
+  keyHandler?: (event: KeyboardEvent, settings: WebGLcustomSettings) => void,
+  initialize: (gl: WebGL2RenderingContext, customSettings: WebGLcustomSettings) => void;
 }
 
 interface WebGLWorkProps {
@@ -36,7 +37,8 @@ interface WebGLRenderInfo {
 }
 
 interface WebGLcustomSettings {
-  primitive: number,
-  pointSize: number,
-  lineThickness: number,
+  currentTask: number,
+  primitive?: number,
+  pointSize?: number,
+  lineThickness?: number,
 }

@@ -1,6 +1,7 @@
 import { mat4 } from "gl-matrix";
 
-const defaultSettings: WebGLcustomSettings = {
+const defaultSettings = {
+  currentTask: 1,
   primitive: 5,
   pointSize: 10,
   lineThickness: 10,
@@ -8,26 +9,37 @@ const defaultSettings: WebGLcustomSettings = {
 
 // Абстракция, которая объединяет очистку и рендер изображения
 // Количество выводимых фигур определяется как наименьший из размеров двух массивов из renderInfo
-function renderAll(gl: WebGL2RenderingContext, renderInfo: WebGLRenderInfo, customSettings?: Partial<WebGLcustomSettings>){
-    
-    const finalSettings: WebGLcustomSettings = {
-        ...defaultSettings,
-        ...customSettings
-    };
+function renderAll(gl: WebGL2RenderingContext, renderInfo: WebGLRenderInfo, customSettings?: Partial<WebGLcustomSettings>) {
 
-    if (finalSettings.primitive > 6 || finalSettings.primitive < 0) finalSettings.primitive = 5;
-    clearScene(gl);
-    for (let i =0; i < ((renderInfo.buffersList.length < renderInfo.programInfoList.length) ? renderInfo.buffersList.length :  renderInfo.programInfoList.length); i++){
-        drawScene(gl, renderInfo.programInfoList[i], renderInfo.buffersList[i], finalSettings);
-    }
+  const finalSettings: {
+    currentTask: number,
+    primitive: number,
+    pointSize: number,
+    lineThickness: number,
+  } = {
+    ...defaultSettings,
+    ...customSettings
+  };
+
+  const { currentTask, primitive, pointSize, lineThickness } = finalSettings;
+
+  if (primitive > 6 || primitive < 0) finalSettings.primitive = 5;
+  clearScene(gl);
+  for (let i = 0; i < ((renderInfo.buffersList.length < renderInfo.programInfoList.length) ? renderInfo.buffersList.length : renderInfo.programInfoList.length); i++) {
+    drawScene(gl, renderInfo.programInfoList[i], renderInfo.buffersList[i], finalSettings);
+  }
 }
 
 // Основной рендер приложения
 function drawScene(
-    gl: WebGL2RenderingContext, 
-    programInfo: WebGLProgramInfo, 
-    buffers: WebGLBuffersInfo, 
-    { primitive, pointSize, lineThickness }: WebGLcustomSettings
+  gl: WebGL2RenderingContext,
+  programInfo: WebGLProgramInfo,
+  buffers: WebGLBuffersInfo,
+  { primitive, pointSize, lineThickness }: {
+    primitive: number,
+    pointSize: number,
+    lineThickness: number,
+  }
 ) {
 
   // Create a perspective matrix, a special matrix that is
@@ -82,13 +94,13 @@ function drawScene(
   {
     const offset = 0;
     const vertexCount = programInfo.vertexCount;
-    
+
     // Включение сглаживания
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     const pointSizeLocation = gl.getUniformLocation(programInfo.program, "uPointSize");
-    gl.uniform1f(pointSizeLocation, pointSize); 
+    gl.uniform1f(pointSizeLocation, pointSize);
 
     gl.drawArrays(primitive, offset, vertexCount);
   }
@@ -135,7 +147,7 @@ function setColorAttribute(gl: WebGL2RenderingContext, buffers: WebGLBuffersInfo
   gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
 }
 
-function clearScene(gl: WebGL2RenderingContext){
+function clearScene(gl: WebGL2RenderingContext) {
   gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
   gl.clearDepth(1.0); // Clear everything
   gl.enable(gl.DEPTH_TEST); // Enable depth testing

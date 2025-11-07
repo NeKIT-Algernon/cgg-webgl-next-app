@@ -62,7 +62,7 @@ export const PR1: WebGLWork = {
     id: "1",
     name: "Практическая работа № 1. Создание оконного приложения",
     controls: [],
-    async initialize(gl, taskNum?: number) {
+    async initialize(gl, customSettings: WebGLcustomSettings) {
 
         // Инициализация шейдерных программ
         const shaderProgramTri1 = initShaderProgram(gl, vsSource, fsSourcetri1);

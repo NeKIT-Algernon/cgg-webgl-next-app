@@ -3,15 +3,9 @@ import { initBuffers } from "./webgl-help/initBuffers";
 import { renderAll } from "./webgl-help/draw";
 
 const globals = {
-    currentTask: 1, // Для отслеживания текущего задания
     maxTask: 8, // Сколько заданий всего
     n: 6, // Для потроения n-угольника
     verts: [0],
-}
-
-const customSettings = {
-    pointSize: 10.0, // Для задания 1
-    primitive: 0, // Для задания 5
 }
 
 function createRegularPolygon(n: number, radius: number = 1): number[] {
@@ -64,9 +58,25 @@ export const PR2: WebGLWork = {
         "1...8 или left / right - Переключение по заданиям ",
         "",
     ],
-    async initialize(gl, taskNum?: number) {
-        switch (globals.currentTask) {
+    keyHandler: (event: KeyboardEvent, settings: WebGLcustomSettings) => {
+        console.log(`Point size = ${settings.pointSize}`);
+        switch(event.code){
+            case 'KeyP':
+                console.log(`Point size = ${settings.pointSize}`);
+                if (settings.pointSize) settings.pointSize = Math.min(settings.pointSize + 1.0, 100.0);
+                console.log(`Point size = ${settings.pointSize}`);
+                break;
+            case 'KeyO':
+                if (settings.pointSize) settings.pointSize = Math.max(settings.pointSize - 1.0, 1);
+                console.log(`Point size = ${settings.pointSize}`);
+                break;
+        }
+    },
+    async initialize(gl, customSettings: WebGLcustomSettings) {
+        switch (customSettings.currentTask) {
             case 1:
+                customSettings.primitive = 0;
+                console.log(`1curTask = ${customSettings.currentTask}`);
                 globals.verts = createRegularPolygon(globals.n, 0.5);
                 break;
         }
@@ -75,7 +85,7 @@ export const PR2: WebGLWork = {
             alert(`Initializing shader program is failed`);
             return null;
         }
-
+        console.log(`2curTask = ${customSettings.currentTask}`);
         const buffer = initBuffers(gl, globals.verts);
         if (!buffer) {
             alert(`Initializing buffers is failed`);
