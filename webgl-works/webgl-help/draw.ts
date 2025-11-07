@@ -1,45 +1,29 @@
 import { mat4 } from "gl-matrix";
+import { baseSceneOptions } from '@/types/baseObjects';
 
-const defaultSettings = {
-  currentTask: 1,
-  primitive: 5,
-  pointSize: 10,
-  lineThickness: 10,
-};
-
-// Абстракция, которая объединяет очистку и рендер изображения
+// Абстракция, которая объединяет очистку и рендер фигур (если их несколько)
 // Количество выводимых фигур определяется как наименьший из размеров двух массивов из renderInfo
-function renderAll(gl: WebGL2RenderingContext, renderInfo: WebGLRenderInfo, customSettings?: Partial<WebGLcustomSettings>) {
+function renderAll(gl: WebGL2RenderingContext, renderInfo: WebGLRenderInfoType, partSceneOptions?: Partial<WebGLSceneOptionsType>) {
 
-  const finalSettings: {
-    currentTask: number,
-    primitive: number,
-    pointSize: number,
-    lineThickness: number,
-  } = {
-    ...defaultSettings,
-    ...customSettings
+  // Если не достаёт настроек, то вставляем базовые
+  const sceneOptions: WebGLSceneOptionsType = {
+    ...baseSceneOptions,
+    ...partSceneOptions
   };
 
-  const { currentTask, primitive, pointSize, lineThickness } = finalSettings;
-
-  if (primitive > 6 || primitive < 0) finalSettings.primitive = 5;
-  clearScene(gl);
+  // Отрисовываем каждую фигуру, данные о которой получаем
   for (let i = 0; i < ((renderInfo.buffersList.length < renderInfo.programInfoList.length) ? renderInfo.buffersList.length : renderInfo.programInfoList.length); i++) {
-    drawScene(gl, renderInfo.programInfoList[i], renderInfo.buffersList[i], finalSettings);
+    drawScene(gl, renderInfo.programInfoList[i], renderInfo.buffersList[i], sceneOptions);
   }
 }
 
-// Основной рендер приложения
+// Рендер одной фигуры. Практически полностью взято из MDN раздела про WebGL 08/11/25
+// Добавлено сглаживание и кастомный размер точек
 function drawScene(
   gl: WebGL2RenderingContext,
-  programInfo: WebGLProgramInfo,
-  buffers: WebGLBuffersInfo,
-  { primitive, pointSize, lineThickness }: {
-    primitive: number,
-    pointSize: number,
-    lineThickness: number,
-  }
+  programInfo: WebGLProgramInfoType,
+  buffers: WebGLBuffersInfoType,
+  { primitive, pointSize, lineThickness }: WebGLSceneOptionsType,
 ) {
 
   // Create a perspective matrix, a special matrix that is
@@ -99,6 +83,7 @@ function drawScene(
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+    // Кастомный размер точки через шейдер
     const pointSizeLocation = gl.getUniformLocation(programInfo.program, "uPointSize");
     gl.uniform1f(pointSizeLocation, pointSize);
 
@@ -108,7 +93,7 @@ function drawScene(
 
 // Tell WebGL how to pull out the positions from the position
 // buffer into the vertexPosition attribute.
-function setPositionAttribute(gl: WebGL2RenderingContext, buffers: WebGLBuffersInfo, programInfo: WebGLProgramInfo) {
+function setPositionAttribute(gl: WebGL2RenderingContext, buffers: WebGLBuffersInfoType, programInfo: WebGLProgramInfoType) {
   const numComponents = 3; // pull out 2 values per iteration
   const type = gl.FLOAT; // the data in the buffer is 32bit floats
   const normalize = false; // don't normalize
@@ -129,7 +114,7 @@ function setPositionAttribute(gl: WebGL2RenderingContext, buffers: WebGLBuffersI
 
 // Tell WebGL how to pull out the colors from the color buffer
 // into the vertexColor attribute.
-function setColorAttribute(gl: WebGL2RenderingContext, buffers: WebGLBuffersInfo, programInfo: WebGLProgramInfo) {
+function setColorAttribute(gl: WebGL2RenderingContext, buffers: WebGLBuffersInfoType, programInfo: WebGLProgramInfoType) {
   const numComponents = 4;
   const type = gl.FLOAT;
   const normalize = false;

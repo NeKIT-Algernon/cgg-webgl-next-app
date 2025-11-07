@@ -1,18 +1,26 @@
-interface WebGLWork {
+//import { Dispatch, SetStateAction } from 'react';
+
+// Тип работы
+// При этом controls и keyHandler не обязательны
+interface WorkType {
   id: string;
   name: string;
-  controls: string[];
-  keyHandler?: (event: KeyboardEvent, settings: WebGLcustomSettings) => void,
-  initialize: (gl: WebGL2RenderingContext, customSettings: WebGLcustomSettings) => void;
+  controls?: string[]; // Массив из выводимых в controls подсказкам по клавишам
+  keyHandler?: (event: KeyboardEvent, settings: WebGLSceneOptionsType) => void, // Обработчик клавиш
+  initialize: (gl: WebGL2RenderingContext, customSettings: WebGLSceneOptionsType) => void, // Отрисовка
 }
 
-interface WebGLWorkProps {
-  works: WebGLWork[],
-  activeWork: WebGLWork | null;
+// То, что возвращает хук. Используется для передачи вниз по дереву компонентов
+interface UseWorksType {
+  works: WorkType[],
+  activeWork: WorkType | null;
   switchWork: (workId: string) => void;
+  sceneOptions: WebGLSceneOptionsType,
+  setSceneOptions: React.Dispatch<React.SetStateAction<WebGLSceneOptionsType>>,
 }
 
-interface WebGLProgramInfo {
+// Информация о программе для дальнейшего рендера 1 фигуры
+interface WebGLProgramInfoType {
   program: WebGLProgram;
   vertexCount: number;
     attribLocations: {
@@ -26,19 +34,22 @@ interface WebGLProgramInfo {
     };
 }
 
-interface WebGLBuffersInfo {
+// Информация о буферах для дальнейшего рендера 1 фигуры
+interface WebGLBuffersInfoType {
   position: WebGLBuffer;
   color: WebGLBuffer | null;
 }
 
-interface WebGLRenderInfo {
-  programInfoList: WebGLProgramInfo[],
-  buffersList: WebGLBuffersInfo[],
+// Информация для рендера нескольких фигур
+interface WebGLRenderInfoType {
+  programInfoList: WebGLProgramInfoType[],
+  buffersList: WebGLBuffersInfoType[],
 }
 
-interface WebGLcustomSettings {
+// Настройки рендера сцены
+interface WebGLSceneOptionsType {
   currentTask: number,
-  primitive?: number,
-  pointSize?: number,
-  lineThickness?: number,
+  primitive: 0 | 1 | 2 | 3 | 4 | 5 | 6,
+  pointSize: number,
+  lineThickness: number,
 }

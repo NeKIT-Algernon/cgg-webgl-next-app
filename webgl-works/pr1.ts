@@ -7,62 +7,12 @@
 import { initShaderProgram } from "./webgl-help/initShaders";
 import { initBuffers } from "./webgl-help/initBuffers";
 import { renderAll } from "./webgl-help/draw";
+import { vsSource, fsSourcetri1, fsSourcetri2, fsSourcetri3, positionsTri1, positionsTri2, positionsTri3 } from "./pr1-src";
 
-// Вершинный шейдер
-const vsSource = `
-    attribute vec4 aVertexPosition;
-    attribute vec4 aVertexColor;
-
-    uniform mat4 uModelViewMatrix;
-    uniform mat4 uProjectionMatrix;
-
-    varying lowp vec4 vColor;
-
-    void main(void) {
-      gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-      vColor = aVertexColor;
-    }
-`;
-
-// Фрагментные шейдеры для 3-х треугольников по заданию
-const fsSourcetri1 = `
-    void main() {
-      gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-    }
-  `;
-const fsSourcetri2 = `
-    void main() {
-      gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
-    }
-  `;
-const fsSourcetri3 = `
-    void main() {
-      gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);
-    }
-  `;
-
-// Координаты для вершин 3-х треугольников
-const positionsTri1 = [
-    -0.9, -0.5, 0.0,
-    -0.6, 0.5, 0.0,
-    -0.3, -0.5, 0.0
-]
-const positionsTri2 = [
-    -0.3, -0.5, 0.0,
-    0.0, 0.5, 0.0,
-    0.3, -0.5, 0.0,
-]
- const positionsTri3 = [   
-    0.3, -0.5, 0.0,
-    0.6, 0.5, 0.0,
-    0.9, -0.5, 0.0,
-];
-
-export const PR1: WebGLWork = {
+export const PR1: WorkType = {
     id: "1",
-    name: "Практическая работа № 1. Создание оконного приложения",
-    controls: [],
-    async initialize(gl, customSettings: WebGLcustomSettings) {
+    name: "Практическая работа № 1",
+    async initialize(gl, SceneOptions: WebGLSceneOptionsType) {
 
         // Инициализация шейдерных программ
         const shaderProgramTri1 = initShaderProgram(gl, vsSource, fsSourcetri1);
@@ -86,7 +36,7 @@ export const PR1: WebGLWork = {
 
         // Заготовка для рендера фигур
         const renderProgram = {
-            programInfoList: [] as WebGLProgramInfo[],
+            programInfoList: [] as WebGLProgramInfoType[],
             buffersList: buffers,
         }
 
@@ -106,7 +56,7 @@ export const PR1: WebGLWork = {
         })
         }
 
-        // Выполняем рендер
+        // Выполняем рендер с базовыми настройками
         renderAll(gl, renderProgram);
         return;
     },

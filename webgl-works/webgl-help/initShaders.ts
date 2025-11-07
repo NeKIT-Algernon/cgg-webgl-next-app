@@ -1,3 +1,5 @@
+// Функции для работы с шейдерами
+// Функции полностью взяты из MDN раздела про WebGL 08/11/25
 //
 // Initialize a shader program, so WebGL knows how to draw our data
 //
