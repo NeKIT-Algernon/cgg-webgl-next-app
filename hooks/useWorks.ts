@@ -1,13 +1,16 @@
 /* Хук для управлением состояним работы */
 
 import { useState, useCallback } from 'react';
+import { baseSceneOptions } from '@/types/baseObjects';
+import { RiPriceTag3Fill } from 'react-icons/ri';
 import { PR1 } from '../webgl-works/pr1';
 import { PR2 } from '../webgl-works/pr2';
-import { baseSceneOptions } from '@/types/baseObjects';
+import { PR3 } from '@/webgl-works/pr3';
 
 const works: WorkType[] = [
   PR1,
   PR2,
+  PR3,
 ];
 
 export const useWebGLWorks = () => {

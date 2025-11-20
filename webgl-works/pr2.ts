@@ -29,14 +29,14 @@ export const PR2: WorkType = {
         switch (event.code) {
             case 'ArrowLeft':
                 if (sceneOptions.currentTask == 1) {
-                    sceneOptions.currentTask = 8;
+                    sceneOptions.currentTask = globals.maxTask;
                     break;
                 }
                 sceneOptions.currentTask--;
                 sceneOptions.currentSubTask = 1;
                 break;
             case 'ArrowRight':
-                if (sceneOptions.currentTask == 8) {
+                if (sceneOptions.currentTask == globals.maxTask) {
                     sceneOptions.currentTask = 1;
                     break;
                 }
