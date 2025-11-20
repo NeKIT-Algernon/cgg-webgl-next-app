@@ -47,7 +47,7 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
         }
       }
     }
-  }, [activeWork, gl, sceneOptions]);
+  }, [activeWork, /*gl,*/ sceneOptions]);
 
   // Добавляем и удаляем обработчик событий
   useEffect(() => {

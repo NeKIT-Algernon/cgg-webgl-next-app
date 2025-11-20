@@ -4,7 +4,7 @@
 // positionBuffer - обязателен
 // colorBuffer - не обязателен (null)
 //
-function initBuffers(gl: WebGL2RenderingContext, positions: number[], colors?: number[]) {
+function initBuffers(gl: WebGL2RenderingContext, positions: number[][], colors?: number[]) {
   const positionBuffer = initPositionBuffer(gl, positions);
   const colorBuffer = (colors) ? (initColorBuffer(gl, colors)) : (null);
   return {
@@ -13,7 +13,7 @@ function initBuffers(gl: WebGL2RenderingContext, positions: number[], colors?: n
   };
 }
 
-function initPositionBuffer(gl: WebGL2RenderingContext, positions: number[]) {
+function initPositionBuffer(gl: WebGL2RenderingContext, positions: number[][]) {
   // Create a buffer for the square's positions.
   const positionBuffer = gl.createBuffer();
 
@@ -24,7 +24,7 @@ function initPositionBuffer(gl: WebGL2RenderingContext, positions: number[]) {
   // Now pass the list of positions into WebGL to build the
   // shape. We do this by creating a Float32Array from the
   // JavaScript array, then use it to fill the current buffer.
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions.flat()), gl.STATIC_DRAW);
 
   return positionBuffer;
 }

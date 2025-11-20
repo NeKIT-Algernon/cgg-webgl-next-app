@@ -16,9 +16,10 @@ function deepFreeze<T extends Record<string, any>>(obj: T): T {
 // Базовые настройки для рендеринга сцен
 const baseSceneOptions: WebGLSceneOptionsType = deepFreeze({
     currentTask: 1, // Начальное задание
-    primitive: 5, // Примитив для отображения. 0 - POINTS
+    currentSubTask: 1,
+    primitive: 5, // Примитив для отображения. 5 - TRIANGLES_STRIP
     pointSize: 10.0, // Размер точки
-    lineThickness: 10.0, // Толщина линии
+    lineThickness: 5, // Толщина линии
 } as const);
 
 export {
