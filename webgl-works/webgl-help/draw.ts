@@ -1,5 +1,6 @@
 import { mat4 } from "gl-matrix";
 import { baseSceneOptions } from '@/types/baseObjects';
+import { WebGLBuffersInfoType, WebGLProgramInfoType, WebGLRenderInfoType, WebGLSceneOptionsType } from "@/types/webGLWork";
 
 // Абстракция, которая объединяет очистку и рендер фигур (если их несколько)
 // Количество выводимых фигур определяется как наименьший из размеров двух массивов из renderInfo
@@ -15,7 +16,7 @@ function renderAll(gl: WebGL2RenderingContext, renderInfo: WebGLRenderInfoType, 
   clearScene(gl);
   // Отрисовываем каждую фигуру, данные о которой получаем
   for (let i = 0; i < ((renderInfo.buffersList.length < renderInfo.programInfoList.length) ? renderInfo.buffersList.length : renderInfo.programInfoList.length); i++) {
-    drawScene(gl, renderInfo.programInfoList[i], renderInfo.buffersList[i], sceneOptions);
+    drawScene(gl, renderInfo.programInfoList[i], renderInfo.buffersList[i], sceneOptions, (renderInfo.transformMatrices ? renderInfo.transformMatrices[i] : undefined));
   }
 }
 
@@ -26,6 +27,7 @@ function drawScene(
   programInfo: WebGLProgramInfoType,
   buffers: WebGLBuffersInfoType,
   { primitive, pointSize, lineThickness }: WebGLSceneOptionsType,
+  transformMatrix?: mat4,
 ) {
 
   // Create a perspective matrix, a special matrix that is
@@ -48,6 +50,8 @@ function drawScene(
   // Set the drawing position to the "identity" point, which is
   // the center of the scene.
   const modelViewMatrix = mat4.create();
+
+  const finalTransformMatrix = transformMatrix || mat4.create();
 
   // Now move the drawing position a bit to where we want to
   // start drawing the square.
@@ -75,6 +79,11 @@ function drawScene(
     programInfo.uniformLocations.modelViewMatrix,
     false,
     modelViewMatrix,
+  );
+  gl.uniformMatrix4fv(
+    (programInfo.uniformLocations.transformMatrix) ? programInfo.uniformLocations.transformMatrix : mat4.create(),
+    false,
+    finalTransformMatrix,
   );
 
   {

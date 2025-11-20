@@ -1,5 +1,8 @@
 //import { Dispatch, SetStateAction } from 'react';
 
+import { mat4 } from "gl-matrix";
+
+
 // Тип работы
 // При этом controls и keyHandler не обязательны
 interface WorkType {
@@ -23,15 +26,16 @@ interface UseWorksType {
 interface WebGLProgramInfoType {
   program: WebGLProgram;
   vertexCount: number;
-    attribLocations: {
-        vertexPosition: number;
-        vertexColor: number;
-    };
-    uniformLocations: {
-        projectionMatrix: WebGLUniformLocation | null;
-        modelViewMatrix: WebGLUniformLocation | null;
-        pointSize?: WebGLUniformLocation | null;
-    };
+  attribLocations: {
+    vertexPosition: number;
+    vertexColor: number;
+  };
+  uniformLocations: {
+    projectionMatrix: WebGLUniformLocation | null;
+    modelViewMatrix: WebGLUniformLocation | null;
+    transformMatrix?: WebGLUniformLocation | null;
+    pointSize?: WebGLUniformLocation | null;
+  };
 }
 
 // Информация о буферах для дальнейшего рендера 1 фигуры
@@ -44,6 +48,7 @@ interface WebGLBuffersInfoType {
 interface WebGLRenderInfoType {
   programInfoList: WebGLProgramInfoType[],
   buffersList: WebGLBuffersInfoType[],
+  transformMatrices?: mat4[],
 }
 
 // Настройки рендера сцены
@@ -53,4 +58,13 @@ interface WebGLSceneOptionsType {
   primitive: 0 | 1 | 2 | 3 | 4 | 5 | 6,
   pointSize: number,
   lineThickness: number,
+}
+
+export type {
+  WorkType,
+  UseWorksType,
+  WebGLProgramInfoType,
+  WebGLBuffersInfoType,
+  WebGLRenderInfoType,
+  WebGLSceneOptionsType,
 }

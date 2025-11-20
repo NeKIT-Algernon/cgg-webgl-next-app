@@ -6,6 +6,7 @@ import { RiPriceTag3Fill } from 'react-icons/ri';
 import { PR1 } from '../webgl-works/pr1';
 import { PR2 } from '../webgl-works/pr2';
 import { PR3 } from '@/webgl-works/pr3';
+import { WebGLSceneOptionsType, WorkType } from '@/types/webGLWork';
 
 const works: WorkType[] = [
   PR1,

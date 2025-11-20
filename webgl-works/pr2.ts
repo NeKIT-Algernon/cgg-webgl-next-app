@@ -13,6 +13,7 @@ import {
     figureVerts2,
     figureVerts3,
 } from "./pr2-src";
+import { WebGLProgramInfoType, WebGLSceneOptionsType, WorkType } from "@/types/webGLWork";
 
 export const PR2: WorkType = {
     id: "2",

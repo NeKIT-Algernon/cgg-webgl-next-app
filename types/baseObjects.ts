@@ -1,5 +1,7 @@
 /* Базовые настройки, которые устанавливаются по умолчанию */
 
+import { WebGLSceneOptionsType } from "./webGLWork";
+
 function deepFreeze<T extends Record<string, any>>(obj: T): T {
     Object.freeze(obj);
     Object.getOwnPropertyNames(obj).forEach(prop => {
