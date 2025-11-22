@@ -18,7 +18,7 @@ import { WebGLProgramInfoType, WebGLSceneOptionsType, WorkType } from "@/types/w
 
 export const PR3: WorkType = {
     id: "3",
-    name: "Практическая работа № 3",
+    name: "Практика № 3",
     controls: [
         "1...3 или left / right - переключение по заданиям ",
         "QWER - переключение между пунктами задания 1-4 (для задания 1)",
@@ -185,7 +185,6 @@ export const PR3: WorkType = {
         for (let i = 0; i < mutable.figures.length; i++) {
 
             // Компиляция шейдерной программы и инициализация буферов
-            // Для 5-го задания используем цвета, для остальных - нет
             const shaderProgram = initShaderProgram(gl, mutable.vsShaders[i], mutable.fsShaders[i]);
             const buffer = initBuffers(gl, mutable.figures[i]);
             if (!shaderProgram) {

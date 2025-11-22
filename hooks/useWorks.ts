@@ -2,16 +2,17 @@
 
 import { useState, useCallback } from 'react';
 import { baseSceneOptions } from '@/types/baseObjects';
-import { RiPriceTag3Fill } from 'react-icons/ri';
+import { WebGLSceneOptionsType, WorkType } from '@/types/webGLWork';
 import { PR1 } from '../webgl-works/pr1';
 import { PR2 } from '../webgl-works/pr2';
 import { PR3 } from '@/webgl-works/pr3';
-import { WebGLSceneOptionsType, WorkType } from '@/types/webGLWork';
+import { PR4 } from '@/webgl-works/pr4';
 
 const works: WorkType[] = [
   PR1,
   PR2,
   PR3,
+  PR4
 ];
 
 export const useWebGLWorks = () => {

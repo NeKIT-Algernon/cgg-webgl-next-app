@@ -1,35 +1,47 @@
 // Вершинный шейдер
-const vsSource = `
-    attribute vec4 aVertexPosition;
-    attribute vec4 aVertexColor;
+const vsSource = `#version 300 es
+    in vec4 aVertexPosition;
+    in vec4 aVertexColor;
 
     uniform mat4 uModelViewMatrix;
     uniform mat4 uProjectionMatrix;
+    uniform mat4 uTransformMatrix;
+    uniform float uPointSize;
 
-    varying lowp vec4 vColor;
+    flat out vec4 vColor;
 
     void main(void) {
-      gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-      vColor = aVertexColor;
+        gl_Position = uProjectionMatrix * uModelViewMatrix * uTransformMatrix  * aVertexPosition;
+        gl_PointSize = uPointSize;
+        vColor = aVertexColor;
     }
 `;
 
 // Фрагментные шейдеры для 3-х треугольников по заданию
-const fsSourcetri1 = `
-    void main() {
-      gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-    }
-  `;
-const fsSourcetri2 = `
-    void main() {
-      gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
-    }
-  `;
-const fsSourcetri3 = `
-    void main() {
-      gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);
-    }
-  `;
+const fsSourcetri1 = `#version 300 es
+precision mediump float;
+out vec4 fragColor;
+
+void main() {
+    fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+}
+`;
+const fsSourcetri2 = `#version 300 es
+precision mediump float;
+out vec4 fragColor;
+
+void main() {
+    fragColor = vec4(0.0, 1.0, 0.0, 1.0);
+}
+`;
+const fsSourcetri3 = `#version 300 es
+precision mediump float;
+out vec4 fragColor;
+
+void main() {
+    fragColor = vec4(0.0, 0.0, 1.0, 0.2);
+}
+`;
 
 // Координаты для вершин 3-х треугольников
 const positionsTri1 = [

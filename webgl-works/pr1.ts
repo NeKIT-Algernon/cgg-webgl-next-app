@@ -4,6 +4,7 @@
 // треугольника разных цветов. Для каждого треугольника следует создать свой 
 // фрагментный шейдер, определяющий его цвет. 
 
+import { WebGLProgramInfoType, WebGLSceneOptionsType, WorkType } from "@/types/webGLWork";
 import { initShaderProgram } from "./webgl-help/initShaders";
 import { initBuffers } from "./webgl-help/initBuffers";
 import { renderAll } from "./webgl-help/draw";
@@ -11,7 +12,7 @@ import { vsSource, fsSourcetri1, fsSourcetri2, fsSourcetri3, positionsTri1, posi
 
 export const PR1: WorkType = {
     id: "1",
-    name: "Практическая работа № 1",
+    name: "Практика № 1",
     async initialize(gl, SceneOptions: WebGLSceneOptionsType) {
 
         // Инициализация шейдерных программ
@@ -44,7 +45,7 @@ export const PR1: WorkType = {
         for (let i = 0; i < shaders.length; i++){
             renderProgram.programInfoList.push({
                 program: shaders[i],
-                vertexCount: 3,
+                vertexCount: 3, // Потому что в этом задании только треугольники
                 attribLocations: {
                     vertexPosition: gl.getAttribLocation(shaders[i], "aVertexPosition"),
                     vertexColor: gl.getAttribLocation(shaders[i], "aVertexColor"),
@@ -52,6 +53,8 @@ export const PR1: WorkType = {
                 uniformLocations: {
                     projectionMatrix: gl.getUniformLocation(shaders[i], "uProjectionMatrix"),
                     modelViewMatrix: gl.getUniformLocation(shaders[i], "uModelViewMatrix"),
+                    transformMatrix: gl.getUniformLocation(shaders[i], "uTransformMatrix"),
+                    pointSize: gl.getUniformLocation(shaders[i], "uPointSize"),
             },
         })
         }

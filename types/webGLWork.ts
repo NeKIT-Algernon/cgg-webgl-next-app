@@ -57,7 +57,7 @@ interface WebGLSceneOptionsType {
   currentSubTask: number,
   primitive: 0 | 1 | 2 | 3 | 4 | 5 | 6,
   pointSize: number,
-  lineThickness: number,
+  angle: number,
 }
 
 export type {

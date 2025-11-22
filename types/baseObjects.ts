@@ -21,7 +21,7 @@ const baseSceneOptions: WebGLSceneOptionsType = deepFreeze({
     currentSubTask: 1,
     primitive: 5, // Примитив для отображения. 5 - TRIANGLES_STRIP
     pointSize: 10.0, // Размер точки
-    lineThickness: 5, // Толщина линии
+    angle: 0, // Толщина линии
 } as const);
 
 export {

@@ -26,7 +26,7 @@ function drawScene(
   gl: WebGL2RenderingContext,
   programInfo: WebGLProgramInfoType,
   buffers: WebGLBuffersInfoType,
-  { primitive, pointSize, lineThickness }: WebGLSceneOptionsType,
+  { primitive, pointSize, angle: lineThickness }: WebGLSceneOptionsType,
   transformMatrix?: mat4,
 ) {
 
@@ -41,10 +41,12 @@ function drawScene(
   const aspect = gl.canvas.width / gl.canvas.height;
   const zNear = 0.1;
   const zFar = 100.0;
+   
   const projectionMatrix = mat4.create();
 
   // note: glMatrix always has the first argument
   // as the destination to receive the result.
+
   mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
 
   // Set the drawing position to the "identity" point, which is
@@ -93,11 +95,11 @@ function drawScene(
     // Включение сглаживания
     // Для точек включаем blending для сглаживания
     if (primitive === gl.POINTS) {
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     } else {
-        // Для линий и других примитивов отключаем blending
-        gl.disable(gl.BLEND);
+      // Для линий и других примитивов отключаем blending
+      gl.disable(gl.BLEND);
     }
 
     // Кастомный размер точки через шейдер
@@ -152,8 +154,8 @@ function setColorAttribute(gl: WebGL2RenderingContext, buffers: WebGLBuffersInfo
 function clearScene(gl: WebGL2RenderingContext) {
   gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
   gl.clearDepth(1.0); // Clear everything
-  gl.enable(gl.DEPTH_TEST); // Enable depth testing
-  gl.depthFunc(gl.LEQUAL); // Near things obscure far things
+  //gl.enable(gl.DEPTH_TEST); // Enable depth testing
+  //gl.depthFunc(gl.LEQUAL); // Near things obscure far things
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); // Set the size of canvas
 
   // Clear the canvas before we start drawing on it.
@@ -161,4 +163,4 @@ function clearScene(gl: WebGL2RenderingContext) {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 }
 
-export { renderAll, drawScene}
+export { renderAll, drawScene }

@@ -1,10 +1,10 @@
+import { WebGLProgramInfoType, WebGLSceneOptionsType, WorkType } from "@/types/webGLWork";
+import { mat4 } from "gl-matrix";
 import { initShaderProgram } from "./webgl-help/initShaders";
 import { initBuffers } from "./webgl-help/initBuffers";
 import { renderAll, drawScene } from "./webgl-help/draw";
 import {
     globals,
-    createRegularPolygon,
-    generateRandomColor,
     vsSource,
     fsSourceRed,
     fsSourceRedPoint,
@@ -12,16 +12,16 @@ import {
     figureVerts1,
     figureVerts2,
     figureVerts3,
+    createRegularPolygon,
+    generateRandomColor,
 } from "./pr2-src";
-import { WebGLProgramInfoType, WebGLSceneOptionsType, WorkType } from "@/types/webGLWork";
 
 export const PR2: WorkType = {
     id: "2",
-    name: "Практическая работа № 2",
+    name: "Практика № 2",
     controls: [
         "1...8 или left / right - переключение по заданиям ",
         "P / O - увеличение / уменьшение точек (только для 1-го задания)",
-        "L / K - увеличение / уменьшение толщины линий (не работает)",
         "T / Y / U - примитивы TRIANGLES / TRIANGLE_STRIP / TRIANGLE_FAN (только для 5-го задания)",
         "Z / X / C - подпункты a / b / c соответственно (только для 8-го задания)",
     ],
@@ -83,10 +83,10 @@ export const PR2: WorkType = {
                 if (sceneOptions.currentTask == 1) sceneOptions.pointSize = Math.max(sceneOptions.pointSize - 1.0, 1);
                 break;
             case 'KeyL':
-                sceneOptions.lineThickness = Math.min(sceneOptions.lineThickness + 1.0, 100.0);
+                sceneOptions.angle = Math.min(sceneOptions.angle + 1.0, 100.0);
                 break;
             case 'KeyK':
-                sceneOptions.lineThickness = Math.max(sceneOptions.lineThickness - 1.0, 1);
+                sceneOptions.angle = Math.max(sceneOptions.angle - 1.0, 1);
                 break;
             case 'KeyT':
                 sceneOptions.primitive = 4;
@@ -256,6 +256,7 @@ export const PR2: WorkType = {
                     const renderProgram = {
                         programInfoList: [] as WebGLProgramInfoType[],
                         buffersList: [buffer],
+                        transformMatrices: [mat4.create()]
                     }
                     renderProgram.programInfoList.push({
                         program: shaderProgram,
@@ -267,6 +268,7 @@ export const PR2: WorkType = {
                         uniformLocations: {
                             projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
                             modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+                            transformMatrix: gl.getUniformLocation(shaderProgram, "uTransformMatrix"),
                             pointSize: gl.getUniformLocation(shaderProgram, "uPointSize"),
                         },
                     })
@@ -322,6 +324,7 @@ export const PR2: WorkType = {
         const renderProgram = {
             programInfoList: [] as WebGLProgramInfoType[],
             buffersList: [buffer],
+            transformMatrices: [mat4.create()]
         }
         renderProgram.programInfoList.push({
             program: shaderProgram,
@@ -333,6 +336,7 @@ export const PR2: WorkType = {
             uniformLocations: {
                 projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
                 modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+                transformMatrix: gl.getUniformLocation(shaderProgram, "uTransformMatrix"),
                 pointSize: gl.getUniformLocation(shaderProgram, "uPointSize"),
             },
         })
