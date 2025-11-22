@@ -26,7 +26,7 @@ function drawScene(
   gl: WebGL2RenderingContext,
   programInfo: WebGLProgramInfoType,
   buffers: WebGLBuffersInfoType,
-  { primitive, pointSize, angle: lineThickness }: WebGLSceneOptionsType,
+  { primitive, pointSize }: WebGLSceneOptionsType,
   transformMatrix?: mat4,
 ) {
 

@@ -1,0 +1,58 @@
+# 
+# Wavefront material file
+# Created with Kaydara FBX
+# 
+
+newmtl Winding
+map_Kd Low_Winding_BaseColor.png
+Ka 0.200000 0.200000 0.200000
+Kd 0.800000 0.800000 0.800000
+Ks 0.200000 0.200000 0.200000
+illum 2
+Ns 20.000000
+Tr 1.000000
+
+newmtl Winding_ncl1_1
+map_Kd Low_Winding_BaseColor.png
+Ka 0.200000 0.200000 0.200000
+Kd 0.800000 0.800000 0.800000
+Ks 0.200000 0.200000 0.200000
+illum 2
+Ns 20.000000
+Tr 1.000000
+
+newmtl Winding_ncl1_2
+map_Kd Low_Winding_BaseColor.png
+Ka 0.200000 0.200000 0.200000
+Kd 0.800000 0.800000 0.800000
+Ks 0.200000 0.200000 0.200000
+illum 2
+Ns 20.000000
+Tr 1.000000
+
+newmtl Handle
+map_Kd Low_Handle_BaseColor.png
+Ka 0.200000 0.200000 0.200000
+Kd 1.000000 1.000000 1.000000
+Ks 0.200000 0.200000 0.200000
+illum 2
+Ns 20.000000
+Tr 1.000000
+
+newmtl Hammer
+map_Kd Low_Hammer_BaseColor.png
+Ka 0.200000 0.200000 0.200000
+Kd 0.800000 0.800000 0.800000
+Ks 0.200000 0.200000 0.200000
+illum 2
+Ns 20.000000
+Tr 1.000000
+
+newmtl Handle_down
+map_Kd Low_Handle_down_BaseColor.png
+Ka 0.200000 0.200000 0.200000
+Kd 0.800000 0.800000 0.800000
+Ks 0.200000 0.200000 0.200000
+illum 2
+Ns 20.000000
+Tr 1.000000

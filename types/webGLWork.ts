@@ -60,6 +60,15 @@ interface WebGLSceneOptionsType {
   angle: number,
 }
 
+// Типы для загруженной модели
+interface LoadedModel {
+    vertices: number[];
+    vertexNormals: number[];
+    textures: number[];
+    indices: number[];
+    vertexCount: number;
+}
+
 export type {
   WorkType,
   UseWorksType,
@@ -67,4 +76,5 @@ export type {
   WebGLBuffersInfoType,
   WebGLRenderInfoType,
   WebGLSceneOptionsType,
+  LoadedModel,
 }

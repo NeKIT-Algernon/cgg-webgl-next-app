@@ -157,8 +157,6 @@ export const PR4: WorkType = {
                 mat4.rotateX(transformMatrix, transformMatrix, angX);  // Сначала вокруг X
                 mat4.rotateY(transformMatrix, transformMatrix, angY);
 
-                //mat4.translate(rotationMatrix, rotationMatrix, [0, 0, -3]);
-
                 mutable.matrices = [transformMatrix];
                 break;
         }
