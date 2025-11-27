@@ -8,13 +8,15 @@ import { PR2 } from '../webgl-works/pr2';
 import { PR3 } from '@/webgl-works/pr3';
 import { PR4 } from '@/webgl-works/pr4';
 import { PR5 } from '@/webgl-works/pr5';
+import { PR6 } from '@/webgl-works/pr6';
 
 const works: WorkType[] = [
   PR1,
   PR2,
   PR3,
   PR4,
-  PR5
+  PR5,
+  PR6,
 ];
 
 export const useWebGLWorks = () => {
