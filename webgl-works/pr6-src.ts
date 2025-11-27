@@ -1,13 +1,24 @@
-import { mat3, mat4 } from "gl-matrix";
+import { mat3, mat4, vec3 } from "gl-matrix";
 
 const globals =  {
     maxTask: 1,
     sphereRadius: 3.0,
-    
+    material1: {
+        ambient:  [0.25, 0.20725, 0.20725] as [number, number, number],
+        diffuse:  [1.0, 0.829, 0.829] as [number, number, number],
+        specular: [0.296648, 0.296648, 0.296648] as [number, number, number],
+        shininess: 0.088
+    },
+    material2: {
+        ambient:  [0.0, 0.0, 0.0] as [number, number, number],
+        diffuse:  [0.1, 0.35, 0.1] as [number, number, number],
+        specular: [0.45, 0.55, 0.45] as [number, number, number],
+        shininess: 0.25
+    }
 }
 
 // ... предыдущий код ...
-
+/*
 export const vsSourceLighting = `#version 300 es
 in vec3 aPosition;
 in vec3 aNormal;
@@ -52,7 +63,64 @@ void main() {
     fragColor = vec4(result, 1.0);
 }
 `;
+*/
 
+export const vsSourcePhong = `#version 300 es
+in vec3 aPosition;
+in vec3 aNormal;
+
+uniform mat4 uModelViewMatrix;
+uniform mat4 uProjectionMatrix;
+uniform mat3 uNormalMatrix;
+
+out vec3 vNormal;
+out vec3 vPosition;
+
+void main() {
+    vNormal = normalize(uNormalMatrix * aNormal);
+    vPosition = vec3(uModelViewMatrix * vec4(aPosition, 1.0));
+    gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
+}
+`;
+
+export const fsSourcePhong = `#version 300 es
+precision mediump float;
+
+// Направленный свет
+uniform vec3 uLightDir;       // Направление света (в видовом пространстве)
+uniform vec3 uLightColor;     // Цвет света
+
+// Материал
+uniform vec3 uAmbient;
+uniform vec3 uDiffuse;
+uniform vec3 uSpecular;
+uniform float uShininess;
+
+in vec3 vNormal;
+in vec3 vPosition;
+
+out vec4 fragColor;
+
+void main() {
+    vec3 normal = normalize(vNormal);
+    vec3 viewDir = normalize(-vPosition);  // Вид из камеры (в видовом пространстве)
+    vec3 reflectDir = reflect(-uLightDir, normal);
+
+    // Ambient
+    vec3 ambient = uAmbient * uLightColor;
+
+    // Diffuse
+    float diff = max(dot(normal, uLightDir), 0.0);
+    vec3 diffuse = diff * uDiffuse * uLightColor;
+
+    // Specular
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), uShininess);
+    vec3 specular = spec * uSpecular * uLightColor;
+
+    vec3 result = ambient + diffuse + specular;
+    fragColor = vec4(result, 1.0);
+}
+`;
 
 
 function createSphere(radius: number, segments: number = 16): {
@@ -150,8 +218,8 @@ function setupModelBuffers(
 }
 
 function createShaderProgram(gl: WebGL2RenderingContext): WebGLProgram {
-    const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vsSourceLighting);
-    const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fsSourceLighting);
+    const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vsSourcePhong);
+    const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fsSourcePhong);
 
     const program = gl.createProgram();
     if (!program) throw new Error('Не удалось создать шейдерную программу');
@@ -185,7 +253,7 @@ function compileShader(gl: WebGL2RenderingContext, type: number, source: string)
     return shader;
 }
 
-function renderModel(
+/*function renderModel(
     gl: WebGLRenderingContext,
     program: WebGLProgram,
     buffers: {
@@ -222,7 +290,48 @@ function renderModel(
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indexBuffer);
     gl.drawElements(gl.TRIANGLES, buffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+}*/
+
+function renderModel(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram,
+    buffers: { vertexBuffer: WebGLBuffer; normalBuffer: WebGLBuffer | null; indexBuffer: WebGLBuffer; vertexCount: number; },
+    modelViewMatrix: mat4,
+    projectionMatrix: mat4,
+    normalMatrix: mat3,
+    material: any,
+    lightDirView: vec3
+) {
+    gl.useProgram(program);
+
+    const posLoc = gl.getAttribLocation(program, 'aPosition');
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.vertexBuffer);
+    gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(posLoc);
+
+    const normLoc = gl.getAttribLocation(program, 'aNormal');
+    if (normLoc >= 0 && buffers.normalBuffer) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normalBuffer);
+        gl.vertexAttribPointer(normLoc, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(normLoc);
+    }
+
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uModelViewMatrix'), false, modelViewMatrix);
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uProjectionMatrix'), false, projectionMatrix);
+    gl.uniformMatrix3fv(gl.getUniformLocation(program, 'uNormalMatrix'), false, normalMatrix);
+
+    gl.uniform3fv(gl.getUniformLocation(program, 'uLightDir'), lightDirView);
+    gl.uniform3fv(gl.getUniformLocation(program, 'uLightColor'), [0.5, 0.3, 0.5]);
+
+    gl.uniform3fv(gl.getUniformLocation(program, 'uAmbient'), material.ambient);
+    gl.uniform3fv(gl.getUniformLocation(program, 'uDiffuse'), material.diffuse);
+    gl.uniform3fv(gl.getUniformLocation(program, 'uSpecular'), material.specular);
+    gl.uniform1f(gl.getUniformLocation(program, 'uShininess'), material.shininess);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indexBuffer);
+    gl.drawElements(gl.TRIANGLES, buffers.vertexCount, gl.UNSIGNED_SHORT, 0);
 }
+
 
 // Вспомогательная функция нормализации
 function normalize(v: number[]): number[] {

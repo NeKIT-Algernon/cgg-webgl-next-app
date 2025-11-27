@@ -1,4 +1,4 @@
-import { mat3, mat4 } from "gl-matrix";
+import { mat3, mat4, vec3 } from "gl-matrix";
 import { WebGLProgramInfoType, WebGLSceneOptionsType, WorkType } from "@/types/webGLWork";
 import { initShaderProgram } from "./webgl-help/initShaders";
 import { initBuffers } from "./webgl-help/initBuffers";
@@ -99,32 +99,71 @@ export const PR6: WorkType = {
     },
 
     render(gl, sceneOptions: WebGLSceneOptionsType) {
-        const modelViewMatrix = mat4.create();
-        const angX = xAngle * Math.PI / 180;
-        const angY = sceneOptions.angle * Math.PI / 180;
+    const projectionMatrix = mat4.create();
+    const viewMatrix = mat4.create();
+    const modelMatrix = mat4.create();
+    const modelViewMatrix = mat4.create();
 
-        mat4.translate(modelViewMatrix, modelViewMatrix, [xOption, yOption, zOption]);
-        mat4.rotateX(modelViewMatrix, modelViewMatrix, angX);
-        mat4.rotateY(modelViewMatrix, modelViewMatrix, angY);
+    const aspect = gl.canvas.width / gl.canvas.height;
+    mat4.perspective(projectionMatrix, (45 * Math.PI) / 180, aspect, 0.01, 100);
 
-        const fieldOfView = (45 * Math.PI) / 180;
-        const aspect = gl.canvas.width / gl.canvas.height;
-        const zNear = 0.01;
-        const zFar = 100;
-        const projectionMatrix = mat4.create();
-        mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
+    // --- Параметры камеры ---
+    const cameraRadius = 4*globals.sphereRadius; // расстояние от центра сцены
+    const centerY = 0;      // высота камеры
+    const centerX = 2*globals.sphereRadius;    // центр между сферами (между 0 и 3)
+    const centerZ = 0;
 
-        // Матрица нормалей
-        const normalMatrix = mat3.create();
-        mat3.normalFromMat4(normalMatrix, modelViewMatrix);
+    const angleX = 30 * Math.PI / 180; // наклон камеры вверх/вниз
+    const angleY = sceneOptions.angle * Math.PI / 180; // вращение вокруг OY
 
-        // Первый шар
-        renderModel(gl, program, buffers, modelViewMatrix, projectionMatrix, normalMatrix);
+    const camX = centerX + Math.sin(angleY) * cameraRadius;
+    const camZ = centerZ - Math.cos(angleY) * cameraRadius; // минус, чтобы камера смотрела внутрь
+    const camY = centerY + Math.sin(angleX) * cameraRadius;
 
-        // Второй шар (смещён)
-        mat4.translate(modelViewMatrix, modelViewMatrix, [3, 0, 0]);
-        renderModel(gl, program, buffers, modelViewMatrix, projectionMatrix, normalMatrix);
-    },
+    // Матрица вида: камера смотрит в центр
+    mat4.lookAt(
+        viewMatrix,
+        [camX, camY, camZ],      // позиция камеры
+        [centerX, centerY, 0],   // точка, на которую смотрим
+        [0, 1, 0]                // вектор "вверх"
+    );
+
+    // --- Материал и свет (если используется Phong) ---
+    const lightDirWorld = vec3.normalize(vec3.create(), [1, 1, -1]); // свет из правого верхнего угла
+    const lightDirView = vec3.transformMat3(vec3.create(), lightDirWorld, viewMatrix);
+    vec3.normalize(lightDirView, lightDirView);
+
+    // --- Первая сфера (x=0) ---
+    mat4.identity(modelMatrix);
+    mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
+
+    const normalMatrix1 = mat3.create();
+    mat3.normalFromMat4(normalMatrix1, modelViewMatrix);
+
+    renderModel(
+        gl, program, buffers,
+        modelViewMatrix, projectionMatrix, normalMatrix1,
+        globals.material1,
+        lightDirView
+    );
+
+    // --- Вторая сфера (x=3) ---
+    mat4.identity(modelMatrix);
+    mat4.translate(modelMatrix, modelMatrix, [2*globals.sphereRadius, 0, 0]);
+
+    mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
+
+    const normalMatrix2 = mat3.create();
+    mat3.normalFromMat4(normalMatrix2, modelViewMatrix);
+
+    renderModel(
+        gl, program, buffers,
+        modelViewMatrix, projectionMatrix, normalMatrix2,
+        globals.material2,
+        lightDirView
+    );
+},
+
 
     dispose(gl) {
 
