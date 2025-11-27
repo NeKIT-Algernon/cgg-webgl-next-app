@@ -1,5 +1,6 @@
 /* Компонент, который отвечает за подсказки по используемым в работе клавишам */
 
+import { UseWorksType } from "@/types/webGLWork";
 import { Text, Box, List } from "@chakra-ui/react"
 
 function Controls({ activeWork }: UseWorksType) {

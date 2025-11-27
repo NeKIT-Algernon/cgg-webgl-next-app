@@ -78,8 +78,12 @@ export const PR3: WorkType = {
         }
     },
 
-    async initialize(gl, sceneOptions: WebGLSceneOptionsType) {
+    initialize(gl, sceneOptions: WebGLSceneOptionsType) {
 
+        
+    },
+
+    render(gl, sceneOptions: WebGLSceneOptionsType){
         const mutable = {
             figures: [] as number[][][], // Фигуры для рендера
             colors: [] as number[], // Цвета для отрисовки
@@ -219,6 +223,10 @@ export const PR3: WorkType = {
         // Отрисовка
         renderAll(gl, renderProgram, sceneOptions)
         return;
-    }
+    },
+
+    dispose(gl){
+
+    },
 }
 

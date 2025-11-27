@@ -8,9 +8,11 @@ import { mat4 } from "gl-matrix";
 interface WorkType {
   id: string;
   name: string;
+  initialize: (gl: WebGL2RenderingContext, customSettings: WebGLSceneOptionsType) => void; // Инициализация
+  render: (gl: WebGL2RenderingContext, customSettings: WebGLSceneOptionsType) => void;
+  dispose: (gl: WebGL2RenderingContext) => void;
   controls?: string[]; // Массив из выводимых в controls подсказкам по клавишам
-  keyHandler?: (event: KeyboardEvent, settings: WebGLSceneOptionsType) => void, // Обработчик клавиш
-  initialize: (gl: WebGL2RenderingContext, customSettings: WebGLSceneOptionsType) => void, // Отрисовка
+  keyHandler?: (event: KeyboardEvent, settings: WebGLSceneOptionsType) => void; // Обработчик клавиш
 }
 
 // То, что возвращает хук. Используется для передачи вниз по дереву компонентов
@@ -58,6 +60,7 @@ interface WebGLSceneOptionsType {
   primitive: 0 | 1 | 2 | 3 | 4 | 5 | 6,
   pointSize: number,
   angle: number,
+  changed?: number,
 }
 
 // Типы для загруженной модели

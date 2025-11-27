@@ -19,6 +19,8 @@ import { mat4 } from "gl-matrix";
 import { WebGLProgramInfoType, WebGLSceneOptionsType, WorkType } from "@/types/webGLWork";
 import { fsSourceColor } from "./pr2-src";
 
+
+
 export const PR4: WorkType = {
     id: "4",
     name: "Практика № 4",
@@ -82,8 +84,11 @@ export const PR4: WorkType = {
         }
     },
 
-    async initialize(gl, sceneOptions: WebGLSceneOptionsType) {
+    initialize(gl, sceneOptions: WebGLSceneOptionsType) {
 
+    },
+
+    render(gl, sceneOptions: WebGLSceneOptionsType){
         const mutable = {
             figures: [] as number[][][], // Фигуры для рендера
             colors: [] as number[], // Цвета для отрисовки
@@ -210,6 +215,10 @@ export const PR4: WorkType = {
         else renderAll(gl, renderProgram, sceneOptions);
         gl.disable(gl.DEPTH_TEST);
         return;
-    }
+    },
+
+    dispose(gl){
+
+    },
 }
 

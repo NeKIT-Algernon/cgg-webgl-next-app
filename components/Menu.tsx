@@ -4,6 +4,7 @@
 
 "use client"
 
+import { UseWorksType } from '@/types/webGLWork'
 import { 
     VStack, 
     Button,

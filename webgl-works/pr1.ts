@@ -13,8 +13,11 @@ import { vsSource, fsSourcetri1, fsSourcetri2, fsSourcetri3, positionsTri1, posi
 export const PR1: WorkType = {
     id: "1",
     name: "Практика № 1",
-    async initialize(gl, SceneOptions: WebGLSceneOptionsType) {
-
+    initialize(gl, SceneOptions: WebGLSceneOptionsType) {
+        return;
+    },
+    
+    render(gl, sceneOptions: WebGLSceneOptionsType){
         // Инициализация шейдерных программ
         const shaderProgramTri1 = initShaderProgram(gl, vsSource, fsSourcetri1);
         const shaderProgramTri2 = initShaderProgram(gl, vsSource, fsSourcetri2);
@@ -61,6 +64,9 @@ export const PR1: WorkType = {
 
         // Выполняем рендер с базовыми настройками
         renderAll(gl, renderProgram);
-        return;
+    },
+
+    dispose(gl){
+
     },
 }

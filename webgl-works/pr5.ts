@@ -10,15 +10,30 @@ import {
     renderModel,
 
 } from "./pr5-src";
-import { Mesh} from "webgl-obj-loader";
+import { Mesh } from "webgl-obj-loader";
 import { fsSourceRed, vsSource } from "./pr5-src";
 import { cart } from "./cart";
+
+let model;
+let program: WebGLProgram;
+let buffers: {
+    vertexBuffer: WebGLBuffer;
+    normalBuffer: WebGLBuffer | null;
+    indexBuffer: WebGLBuffer;
+    vertexCount: number;
+};
+
+let yOption = 0.3;
+let zOption = -7;
+let xOption = 0;
 
 export const PR5: WorkType = {
     id: "5",
     name: "Практика № 5",
     controls: [
-        "...",
+        "Z/X - вращение",
+        "WASD - движение по осям",
+        "numAdd / numSub - приблизить / отдалить",
     ],
 
     keyHandler: (event: KeyboardEvent, sceneOptions: WebGLSceneOptionsType) => {
@@ -26,128 +41,74 @@ export const PR5: WorkType = {
             case 'KeyZ':
                 sceneOptions.angle += 2;
                 if (sceneOptions.angle == 360) sceneOptions.angle = 0;
+                sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1;
                 break;
             case 'KeyX':
                 sceneOptions.angle -= 2;
                 if (sceneOptions.angle == -360) sceneOptions.angle = 0;
+                sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1;
+                break;
+            case 'NumpadAdd':
+                zOption += 0.1;
+                if (zOption > -5) zOption = -5;
+                sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1;
+                break;
+            case 'NumpadSubtract':
+                zOption -= 0.1;
+                if (zOption < -13) zOption = -13;
+                sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1;
+                break;
+            case 'KeyA':
+                xOption -= 0.1;
+                sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1;
+                break;
+            case 'KeyD':
+                xOption += 0.1;
+                sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1;
+                break;
+            case 'KeyW':
+                yOption += 0.1;
+                sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1;
+                break;
+            case 'KeyS':
+                yOption -= 0.1;
+                sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1;
                 break;
         }
     },
 
-    async initialize(gl, sceneOptions: WebGLSceneOptionsType) {
-
-        /*const mutable = {
-            figures: [] as number[][][], // Фигуры для рендера
-            colors: [] as number[], // Цвета для отрисовки
-            vsShaders: [] as string[],
-            fsShaders: [] as string[],
-            matrices: [] as mat4[],
-        }
-
+    initialize(gl, sceneOptions: WebGLSceneOptionsType) {
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
 
         sceneOptions.primitive = gl.TRIANGLES;
-        const model = new Mesh(cart);
+        model = new Mesh(cart);
 
-        const transformMatrix = mat4.create();
-        // Преобразуем градусы в радианы
-        const angX = 30 * Math.PI / 180;  // 30° вокруг OX
-        const angY = sceneOptions.angle * Math.PI / 180;   // вокруг OY
-        // Применяем повороты (важен порядок!)6
-        mat4.translate(transformMatrix, transformMatrix, [0, 0, -2]);
-        mat4.rotateX(transformMatrix, transformMatrix, angX);  // Сначала вокруг X
-        mat4.rotateY(transformMatrix, transformMatrix, angY);
-        mutable.matrices = [transformMatrix];
+        program = createShaderProgram(gl);
+        buffers = setupModelBuffers(gl, model);
 
-        const modelVerts = [];
-        for (let i = 0; i < model.vertices.length - 2; i++) {
-            modelVerts.push([model.vertices[i], model.vertices[i + 1], model.vertices[i + 2]])
-        }
+        return;
+    },
 
-        mutable.figures.push(modelVerts);
-
-        const renderProgram = {
-            programInfoList: [] as WebGLProgramInfoType[],
-            buffersList: [] as { position: WebGLBuffer; color: WebGLBuffer | null; }[],
-            transformMatrices: [] as mat4[],
-        }
-
-        // Автодополнение
-        mutable.fsShaders = [...mutable.fsShaders, ...Array(mutable.figures.length - mutable.fsShaders.length).fill(fsSourceRed)]
-        mutable.vsShaders = [...mutable.vsShaders, ...Array(mutable.figures.length - mutable.vsShaders.length).fill(vsSource)]
-        mutable.matrices = [...mutable.matrices, ...Array(mutable.figures.length - mutable.matrices.length).fill(mat4.create())]
-
-        for (let i = 0; i < mutable.figures.length; i++) {
-            // Компиляция шейдерной программы и инициализация буферов
-            const shaderProgram = initShaderProgram(gl, mutable.vsShaders[i], mutable.fsShaders[i]);
-            const buffer = (sceneOptions.currentTask == 3) ? initBuffers(gl, mutable.figures[i], mutable.colors) : initBuffers(gl, mutable.figures[i])
-            if (!shaderProgram) {
-                alert(`Initializing shader program is failed`);
-                return null;
-            }
-
-            if (!buffer) {
-                alert(`Initializing buffers is failed`);
-                return null;
-            }
-
-            // Составление программы для рендера
-            renderProgram.buffersList.push(buffer);
-            renderProgram.programInfoList.push({
-                program: shaderProgram,
-                vertexCount: mutable.figures[i].length,
-                attribLocations: {
-                    vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-                    vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
-                },
-                uniformLocations: {
-                    projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
-                    modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
-                    transformMatrix: gl.getUniformLocation(shaderProgram, "uTransformMatrix"),
-                    pointSize: gl.getUniformLocation(shaderProgram, "uPointSize"),
-                },
-            });
-            renderProgram.transformMatrices.push(mutable.matrices[i]);
-        }
-
-        // Отрисовка
-        renderAll(gl, renderProgram, sceneOptions);
-        return;*/
-
-        gl.enable(gl.DEPTH_TEST);
-        gl.depthFunc(gl.LEQUAL);
-
-        sceneOptions.primitive = gl.TRIANGLES;
-        const model = new Mesh(cart);
-
-        console.log('Максимальный индекс:', Math.max(...model.indices));
-        console.log('Минимальный индекс:', Math.min(...model.indices));
-        console.log(`
-            Всего вершин: ${model.vertices.length / 3}, 
-            Всего индексов: ${model.indices.length}, 
-            Всего нормалей: ${model.vertexNormals.length / 3},
-            Всего текстур: ${model.textures.length / 2},
-            Индексы: ${model.indices}, 
-            `);
-
-        const program = createShaderProgram(gl);
-        const buffers = setupModelBuffers(gl, model);
-
+    render(gl, sceneOptions: WebGLSceneOptionsType) {
         // Создаем матрицы
         const modelViewMatrix = mat4.create();
+
+        //mat4.scale(modelViewMatrix, modelViewMatrix, [4, 4, 4]);
+
         // Преобразуем градусы в радианы
-        //const angX = 30 * Math.PI / 180;  // 30° вокруг OX
-        const angY = sceneOptions.angle * Math.PI / 180;   // вокруг OY
-        //mat4.rotateX(modelViewMatrix, modelViewMatrix, angX); 
-        mat4.translate(modelViewMatrix, modelViewMatrix, [0, -0.5, -2]);
+        const angX = 30 * Math.PI / 180;
+        const angY = sceneOptions.angle * Math.PI / 180;   // вокруг OY 
+
+        mat4.translate(modelViewMatrix, modelViewMatrix, [xOption, yOption, zOption]);
+        mat4.rotateX(modelViewMatrix, modelViewMatrix, angX);
         mat4.rotateY(modelViewMatrix, modelViewMatrix, angY);
 
 
         const fieldOfView = (45 * Math.PI) / 180; // in radians
         const aspect = gl.canvas.width / gl.canvas.height;
-        const zNear = 0.1;
-        const zFar = 100.0;
+        const zNear = 6;
+        const zFar = 12;
         const projectionMatrix = mat4.create();
         mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
 
@@ -165,8 +126,10 @@ export const PR5: WorkType = {
             projectionMatrix,
             normalMatrix
         );
+    },
 
-        return;
-    }
+    dispose(gl) {
+
+    },
 }
 

@@ -1,55 +1,110 @@
-/* Основной компонент. Именно здесь происходит отображение сцены из WebGL.
- * Также Здесь происходит обработка нажатия клавиш */
+/* components/GLCanvas.tsx */
+"use client";
 
-"use client"
-
-import {
-  Box,
-  AspectRatio,
-} from '@chakra-ui/react'
-import { useRef, useEffect, useState, useCallback } from "react"
+import { UseWorksType } from '@/types/webGLWork';
+import { Box, AspectRatio } from '@chakra-ui/react';
+import { useRef, useEffect, useCallback } from 'react';
 
 function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
-  const canvasRef = useRef<HTMLCanvasElement>(null) // Ссылка на canvas
-  const [gl, setGL] = useState<WebGL2RenderingContext | undefined>(); // Контекст WebGL
-  
-  // Установка "внутреннего" размера canvas для корректного отображения
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<WebGL2RenderingContext | null>(null);
+  const workRef = useRef(activeWork);
+  const sceneOptionsRef = useRef(sceneOptions);
+  const isInitializedRef = useRef(false);
+
+  // Обновляем ref'ы при изменении зависимостей
+  useEffect(() => {
+    workRef.current = activeWork;
+  }, [activeWork]);
+
+  useEffect(() => {
+    sceneOptionsRef.current = sceneOptions;
+  }, [sceneOptions]);
+
+  // Установка размера canvas
   const setupCanvasSize = useCallback((canvas: HTMLCanvasElement) => {
-    const container = canvas.parentElement
-    if (!container) return
+    const container = canvas.parentElement;
+    if (!container) return;
 
-    const displayWidth = container.clientWidth
-    const displayHeight = container.clientHeight
+    const displayWidth = container.clientWidth;
+    const displayHeight = container.clientHeight;
 
-    // Проверяем, нужно ли изменять размер
     if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
-      canvas.width = displayWidth
-      canvas.height = displayHeight
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
     }
-  }, [])
+  }, []);
 
-  // Обработчик клавиш. Вызывает KeyHandler из activeWork при нажатии любой клавиши
-  // и перерисовывает сцену, если изменились customSettings
+  // Инициализация (один раз)
+  const initialize = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    setupCanvasSize(canvas);
+
+    const gl = canvas.getContext('webgl2', { alpha: false });
+    if (!gl) {
+      console.error('Не удалось получить WebGL2 контекст');
+      return;
+    }
+
+    glRef.current = gl;
+
+    const work = workRef.current;
+    if (work && !isInitializedRef.current) {
+      work.initialize(gl, sceneOptionsRef.current);
+      isInitializedRef.current = true;
+    }
+  }, [setupCanvasSize]);
+
+  // Рендерим сцену
+  const renderScene = useCallback(() => {
+    const gl = glRef.current;
+    const work = workRef.current;
+
+    if (!gl || !work || !isInitializedRef.current) return;
+
+    // Устанавливаем viewport и очищаем буферы
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // Вызываем render
+    work.render(gl, sceneOptionsRef.current);
+  }, []);
+
+  // Обработчик клавиш
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (activeWork?.keyHandler) {
-      // Создаем копию настроек для иммутабельности
-      const newSettings = { ...sceneOptions };
+    const work = workRef.current;
+    if (!work?.keyHandler) return;
 
-      // Вызываем обработчик работы
-      activeWork.keyHandler(event, newSettings);
+    const newSceneOptions = { ...sceneOptionsRef.current };
+    work.keyHandler(event, newSceneOptions);
 
-      // Обновляем состояние и перерисовываем сцену, если настройки изменились
-      if (JSON.stringify(sceneOptions) !== JSON.stringify(newSettings)) {
-        setSceneOptions(newSettings);
-
-        if (gl && canvasRef.current) {
-          activeWork.initialize(gl, newSettings);
-        }
-      }
+    // Если параметры изменились — обновляем состояние И рендерим
+    if (JSON.stringify(sceneOptionsRef.current) !== JSON.stringify(newSceneOptions)) {
+      setSceneOptions(newSceneOptions);
+      renderScene(); // <- рендерим вручную
     }
-  }, [activeWork, /*gl,*/ sceneOptions]);
+  }, [setSceneOptions, renderScene]);
 
-  // Добавляем и удаляем обработчик событий
+  // Инициализация при монтировании или смене activeWork
+  useEffect(() => {
+    if (activeWork && !isInitializedRef.current) {
+      initialize();
+    }
+    return () => {
+      // Очистка
+      if (isInitializedRef.current) {
+        const gl = glRef.current;
+        if (gl && activeWork?.dispose) {
+          activeWork.dispose(gl);
+        }
+        isInitializedRef.current = false;
+      }
+    };
+  }, [activeWork, initialize]);
+
+  // Подписка на keydown
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => {
@@ -57,29 +112,23 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
     };
   }, [handleKeyDown]);
 
-  // Инициализация WebGL и canvas
+  // Рендер при изменении sceneOptions (например, через внешние кнопки)
   useEffect(() => {
-    const canvas = canvasRef.current;
-    setGL(canvas?.getContext?.("webgl2") ?? undefined);
-    if (!gl || !canvas) {
-      return;
-    }
-    else {
-      setupCanvasSize(canvas);
-      activeWork?.initialize(gl, sceneOptions);
-    }
-  }, [activeWork, gl, sceneOptions]);
+    renderScene();
+  }, [sceneOptions, renderScene]);
 
   return (
-    <AspectRatio ratio={16 / 9} >
+    <AspectRatio ratio={16 / 9}>
       <Box
-        as={'canvas'}
-        bg={'gray'}
+        as="canvas"
+        bg="gray.900"
         borderRadius="md"
         ref={canvasRef}
+        tabIndex={0}
+        outline="none"
       />
     </AspectRatio>
-  )
+  );
 }
 
-export default GLCanvas
+export default GLCanvas;

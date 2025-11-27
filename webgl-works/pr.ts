@@ -13,7 +13,6 @@ export const PRX: WorkType = {
     controls: [
         "1...X или left / right - переключение по заданиям",
     ],
-
     keyHandler: (event: KeyboardEvent, sceneOptions: WebGLSceneOptionsType) => {
         switch (event.code) {
             case 'ArrowLeft':
@@ -42,7 +41,7 @@ export const PRX: WorkType = {
         }
     },
 
-    async initialize(gl, sceneOptions: WebGLSceneOptionsType) {
+    initialize(gl, sceneOptions: WebGLSceneOptionsType) {
 
         const mutable = {
             figures: [] as number[][][], // Фигуры для рендера
@@ -107,6 +106,14 @@ export const PRX: WorkType = {
         renderAll(gl, renderProgram, sceneOptions);
         gl.disable(gl.DEPTH_TEST);
         return;
-    }
+    },
+
+    render(gl, sceneOptions: WebGLSceneOptionsType){
+
+    },
+
+    dispose(gl){
+
+    },
 }
 

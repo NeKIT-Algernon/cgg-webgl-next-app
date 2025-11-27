@@ -109,8 +109,10 @@ export const PR2: WorkType = {
         }
     },
 
-    async initialize(gl, sceneOptions: WebGLSceneOptionsType) {
+    initialize(gl, sceneOptions: WebGLSceneOptionsType) {
 
+    },
+    render(gl, sceneOptions: WebGLSceneOptionsType){
         const mutable = {
             verts: [] as number[][], // Вершины для отрисовки
             colors: [] as number[], // Цвета для отрисовки
@@ -345,6 +347,10 @@ export const PR2: WorkType = {
         renderAll(gl, renderProgram, sceneOptions)
         gl.disable(gl.CULL_FACE);
         return;
-    }
+    },
+
+    dispose(gl){
+
+    },
 }
 
