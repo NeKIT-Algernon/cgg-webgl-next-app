@@ -35,8 +35,41 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
     }
   }, []);
 
-  // Инициализация (один раз)
-  const initialize = useCallback(() => {
+  // Рендерим сцену
+  const renderScene = useCallback(() => {
+    const gl = glRef.current;
+    const work = workRef.current;
+
+    if (!gl || !work || !isInitializedRef.current) return;
+
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // Если это PR6 — передаём time
+    const currentTime = Date.now() * 0.001;
+    const sceneOptionsToRender = work.id === "6"
+      ? { ...sceneOptionsRef.current, time: currentTime }
+      : sceneOptionsRef.current;
+
+    work.render(gl, sceneOptionsToRender);
+  }, []);
+
+  // Обработчик клавиш
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    const work = workRef.current;
+    if (!work?.keyHandler) return;
+
+    const newSceneOptions = { ...sceneOptionsRef.current };
+    work.keyHandler(event, newSceneOptions);
+
+    if (JSON.stringify(sceneOptionsRef.current) !== JSON.stringify(newSceneOptions)) {
+      setSceneOptions(newSceneOptions);
+      renderScene(); // 👉 рендерим вручную
+    }
+  }, [setSceneOptions, renderScene]);
+
+  // === Основной эффект: инициализация и анимация ===
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -55,54 +88,36 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
       work.initialize(gl, sceneOptionsRef.current);
       isInitializedRef.current = true;
     }
-  }, [setupCanvasSize]);
 
-  // Рендерим сцену
-  const renderScene = useCallback(() => {
-    const gl = glRef.current;
-    const work = workRef.current;
+    let animationId: number;
 
-    if (!gl || !work || !isInitializedRef.current) return;
-
-    // Устанавливаем viewport и очищаем буферы
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    // Вызываем render
-    work.render(gl, sceneOptionsRef.current);
-  }, []);
-
-  // Обработчик клавиш
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    const work = workRef.current;
-    if (!work?.keyHandler) return;
-
-    const newSceneOptions = { ...sceneOptionsRef.current };
-    work.keyHandler(event, newSceneOptions);
-
-    // Если параметры изменились — обновляем состояние И рендерим
-    if (JSON.stringify(sceneOptionsRef.current) !== JSON.stringify(newSceneOptions)) {
-      setSceneOptions(newSceneOptions);
-      renderScene(); // <- рендерим вручную
+    // Только для PR6 — запускаем анимационный цикл
+    if (work?.id === "6") {
+      const animate = () => {
+        renderScene(); // использует `time` внутри
+        animationId = requestAnimationFrame(animate);
+      };
+      animate();
     }
-  }, [setSceneOptions, renderScene]);
 
-  // Инициализация при монтировании или смене activeWork
-  useEffect(() => {
-    if (activeWork && !isInitializedRef.current) {
-      initialize();
+    // Для других работ — рендер один раз
+    if (work?.id !== "6") {
+      renderScene();
     }
+
+    // Очистка
     return () => {
-      // Очистка
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
       if (isInitializedRef.current) {
-        const gl = glRef.current;
-        if (gl && activeWork?.dispose) {
-          activeWork.dispose(gl);
+        if (gl && work?.dispose) {
+          work.dispose(gl);
         }
         isInitializedRef.current = false;
       }
     };
-  }, [activeWork, initialize]);
+  }, [activeWork, setupCanvasSize, renderScene]);
 
   // Подписка на keydown
   useEffect(() => {
@@ -111,11 +126,6 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [handleKeyDown]);
-
-  // Рендер при изменении sceneOptions (например, через внешние кнопки)
-  useEffect(() => {
-    renderScene();
-  }, [sceneOptions, renderScene]);
 
   return (
     <AspectRatio ratio={16 / 9}>

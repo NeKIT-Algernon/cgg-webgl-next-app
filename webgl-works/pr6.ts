@@ -99,72 +99,121 @@ export const PR6: WorkType = {
     },
 
     render(gl, sceneOptions: WebGLSceneOptionsType) {
-    const projectionMatrix = mat4.create(); // матрица проекции
-    const viewMatrix = mat4.create();
-    const modelMatrix = mat4.create();
-    const modelViewMatrix = mat4.create();
+        const projectionMatrix = mat4.create(); // матрица проекции
+        const viewMatrix = mat4.create();
+        const modelMatrix = mat4.create();
+        const modelViewMatrix = mat4.create();
 
-    const aspect = gl.canvas.width / gl.canvas.height;
-    mat4.perspective(projectionMatrix, (45 * Math.PI) / 180, aspect, 0.01, 100);
+        const aspect = gl.canvas.width / gl.canvas.height;
+        mat4.perspective(projectionMatrix, (45 * Math.PI) / 180, aspect, 0.01, 100);
 
-    // --- Параметры камеры ---
-    const cameraRadius = 4*globals.sphereRadius - zOption; // расстояние от центра сцены
-    const centerY = 0; // высота камеры
-    const centerX = 2*globals.sphereRadius; // центр между сферами
-    const centerZ = 0;
+        // --- Параметры камеры ---
+        const cameraRadius = 4 * globals.sphereRadius - zOption; // расстояние от центра сцены
+        const centerY = 0; // высота камеры
+        const centerX = 2 * globals.sphereRadius; // центр между сферами
+        const centerZ = 0;
 
-    const angleX = 30 * Math.PI / 180; // наклон камеры вверх/вниз
-    const angleY = sceneOptions.angle * Math.PI / 180; // вращение вокруг OY
+        const angleX = 30 * Math.PI / 180; // наклон камеры вверх/вниз
+        const angleY = sceneOptions.angle * Math.PI / 180; // вращение вокруг OY
 
-    const camX = centerX + Math.sin(angleY) * cameraRadius;
-    const camZ = centerZ + Math.cos(angleY) * cameraRadius; // минус, чтобы камера смотрела внутрь
-    const camY = centerY + Math.sin(angleX) * cameraRadius;
+        const camX = centerX + Math.sin(angleY) * cameraRadius;
+        const camZ = centerZ + Math.cos(angleY) * cameraRadius; // минус, чтобы камера смотрела внутрь
+        const camY = centerY + Math.sin(angleX) * cameraRadius;
 
-    // Матрица вида: камера смотрит в центр
-    mat4.lookAt(
-        viewMatrix,
-        [camX, camY, camZ],      // позиция камеры
-        [centerX, centerY, 0],   // точка, на которую смотрим
-        [0, 1, 0]                // вектор "вверх"
-    );
+        // --- Анимация времени ---
+        const time = Date.now() * 0.001; // секунды
 
-    // --- Материал и свет (если используется Phong) ---
-    const lightDirWorld = vec3.normalize(vec3.create(), [1, 1, -1]); // свет из правого верхнего угла
-    const lightDirView = vec3.transformMat3(vec3.create(), lightDirWorld, viewMatrix);
-    vec3.normalize(lightDirView, lightDirView);
+        // --- 5 точечных источника (можно сделать анимированными) ---
+        const pointLights = [
+            {
+                pos: vec3.fromValues(Math.sin(time * 0.7) * 5, 4, Math.cos(time * 0.7) * 5),
+                color: [1.0, 0.4, 0.4] as [number, number, number],
+                attenuation: 0.5
+            },
+            {
+                pos: vec3.fromValues(Math.cos(time * 0.5) * 6, 3, Math.sin(time * 0.5) * 3),
+                color: [0.4, 1.0, 0.6] as [number, number, number],
+                attenuation: 0.3
+            },
+            {
+                pos: vec3.fromValues(-4, Math.sin(time) * 3 + 3, -2),
+                color: [0.8, 0.8, 1.0] as [number, number, number],
+                attenuation: 0.0 // без затухания — "бесконечный"
+            },
+            {
+                pos: vec3.fromValues(Math.cos(time * 0.5) * 6, 3, Math.sin(time * 0.5) * 3),
+                color: [0, 1.0, 0] as [number, number, number],
+                attenuation: 0
+            },
+            {
+                pos: vec3.fromValues(Math.cos(time * 0.5) * 6, 3, Math.sin(time * 0.5) * 3),
+                color: [1, 0, 0] as [number, number, number],
+                attenuation: 0
+            },
+        ];
 
-    // --- Первая сфера (x=0) ---
-    mat4.identity(modelMatrix);
-    mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
+        // Преобразуем позиции источников в **видовое пространство**
+        const pointLightsInView = pointLights.map(light => ({
+            ...light,
+            pos: vec3.transformMat4(vec3.create(), light.pos, viewMatrix)
+        }));
 
-    const normalMatrix1 = mat3.create();
-    mat3.normalFromMat4(normalMatrix1, modelViewMatrix);
+        // Матрица вида: камера смотрит в центр
+        mat4.lookAt(
+            viewMatrix,
+            [camX, camY, camZ],      // позиция камеры
+            [centerX, centerY, 0],   // точка, на которую смотрим
+            [0, 1, 0]                // вектор "вверх"
+        );
 
-    renderModel(
-        gl, program, buffers,
-        modelViewMatrix, projectionMatrix, normalMatrix1,
-        globals.material1,
-        lightDirView,
-        viewMatrix,
-    );
+        // --- Материал и свет (если используется Phong) ---
+        const lightDirWorld = vec3.normalize(vec3.create(), [1, 1, -1]); // свет из правого верхнего угла
+        const lightDirView = vec3.transformMat3(vec3.create(), lightDirWorld, viewMatrix);
+        vec3.normalize(lightDirView, lightDirView);
 
-    // --- Вторая сфера (x=3) ---
-    mat4.identity(modelMatrix);
-    mat4.translate(modelMatrix, modelMatrix, [2*globals.sphereRadius, 0, 0]);
 
-    mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
 
-    const normalMatrix2 = mat3.create();
-    mat3.normalFromMat4(normalMatrix2, modelViewMatrix);
+        const radius = globals.sphereRadius;
+        const baseGap = 4 * radius; // начальное расстояние между центрами
+        const minGap = 2 * radius; // минимальное расстояние между центрами
 
-    renderModel(
-        gl, program, buffers,
-        modelViewMatrix, projectionMatrix, normalMatrix2,
-        globals.material2,
-        lightDirView,
-        viewMatrix,
-    );
-},
+        const maxTravel = (baseGap - minGap) / 2; // на сколько каждая может "въехать"
+        const travel = Math.sin(time * 1.1) * maxTravel;
+
+        // Позиции центров
+        const sphere1X = -travel;                    // левая сфера едет вправо
+        const sphere2X = baseGap + travel;           // правая сфера едет влево
+
+        // --- Первая сфера ---
+        const normalMatrix1 = mat3.create();
+        mat4.identity(modelMatrix);
+        mat4.translate(modelMatrix, modelMatrix, [sphere1X, 0, 0]);
+        mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
+        mat3.normalFromMat4(normalMatrix1, modelViewMatrix);
+
+        renderModel(
+            gl, program, buffers,
+            modelViewMatrix, projectionMatrix, normalMatrix1,
+            globals.material1,
+            lightDirView,
+            pointLightsInView
+        );
+
+        const normalMatrix2 = mat3.create();
+        // --- Вторая сфера ---
+        mat4.identity(modelMatrix);
+        mat4.translate(modelMatrix, modelMatrix, [sphere2X, 0, 0]);
+        mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
+        mat3.normalFromMat4(normalMatrix2, modelViewMatrix);
+
+        renderModel(
+            gl, program, buffers,
+            modelViewMatrix, projectionMatrix, normalMatrix2,
+            globals.material2,
+            lightDirView,
+            pointLightsInView
+        );
+    },
 
 
     dispose(gl) {
