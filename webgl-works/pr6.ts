@@ -20,7 +20,7 @@ let buffers: {
 let xAngle = 0;
 
 let yOption = 0.3;
-let zOption = -7;
+let zOption = 0;
 let xOption = 0;
 
 export const PR6: WorkType = {
@@ -99,7 +99,7 @@ export const PR6: WorkType = {
     },
 
     render(gl, sceneOptions: WebGLSceneOptionsType) {
-    const projectionMatrix = mat4.create();
+    const projectionMatrix = mat4.create(); // матрица проекции
     const viewMatrix = mat4.create();
     const modelMatrix = mat4.create();
     const modelViewMatrix = mat4.create();
@@ -108,16 +108,16 @@ export const PR6: WorkType = {
     mat4.perspective(projectionMatrix, (45 * Math.PI) / 180, aspect, 0.01, 100);
 
     // --- Параметры камеры ---
-    const cameraRadius = 4*globals.sphereRadius; // расстояние от центра сцены
-    const centerY = 0;      // высота камеры
-    const centerX = 2*globals.sphereRadius;    // центр между сферами (между 0 и 3)
+    const cameraRadius = 4*globals.sphereRadius - zOption; // расстояние от центра сцены
+    const centerY = 0; // высота камеры
+    const centerX = 2*globals.sphereRadius; // центр между сферами
     const centerZ = 0;
 
     const angleX = 30 * Math.PI / 180; // наклон камеры вверх/вниз
     const angleY = sceneOptions.angle * Math.PI / 180; // вращение вокруг OY
 
     const camX = centerX + Math.sin(angleY) * cameraRadius;
-    const camZ = centerZ - Math.cos(angleY) * cameraRadius; // минус, чтобы камера смотрела внутрь
+    const camZ = centerZ + Math.cos(angleY) * cameraRadius; // минус, чтобы камера смотрела внутрь
     const camY = centerY + Math.sin(angleX) * cameraRadius;
 
     // Матрица вида: камера смотрит в центр
@@ -144,7 +144,8 @@ export const PR6: WorkType = {
         gl, program, buffers,
         modelViewMatrix, projectionMatrix, normalMatrix1,
         globals.material1,
-        lightDirView
+        lightDirView,
+        viewMatrix,
     );
 
     // --- Вторая сфера (x=3) ---
@@ -160,7 +161,8 @@ export const PR6: WorkType = {
         gl, program, buffers,
         modelViewMatrix, projectionMatrix, normalMatrix2,
         globals.material2,
-        lightDirView
+        lightDirView,
+        viewMatrix,
     );
 },
 

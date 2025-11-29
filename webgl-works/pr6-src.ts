@@ -7,13 +7,13 @@ const globals =  {
         ambient:  [0.25, 0.20725, 0.20725] as [number, number, number],
         diffuse:  [1.0, 0.829, 0.829] as [number, number, number],
         specular: [0.296648, 0.296648, 0.296648] as [number, number, number],
-        shininess: 0.088
+        shininess: 0.088*128
     },
     material2: {
         ambient:  [0.0, 0.0, 0.0] as [number, number, number],
         diffuse:  [0.1, 0.35, 0.1] as [number, number, number],
         specular: [0.45, 0.55, 0.45] as [number, number, number],
-        shininess: 0.25
+        shininess: 0.25*128
     }
 }
 
@@ -87,8 +87,13 @@ export const fsSourcePhong = `#version 300 es
 precision mediump float;
 
 // Направленный свет
-uniform vec3 uLightDir;       // Направление света (в видовом пространстве)
-uniform vec3 uLightColor;     // Цвет света
+uniform vec3 uLightDir;           // Направление (в видовом пространстве)
+uniform vec3 uLightColor;         // Цвет
+
+// Точечный свет (лампочка)
+uniform vec3 uPointLightPos;      // Позиция в видовом пространстве
+uniform vec3 uPointLightColor;    // Цвет точечного света
+uniform float uAttenuation;       // Коэффициент затухания (1.0 = быстро гаснет)
 
 // Материал
 uniform vec3 uAmbient;
@@ -102,25 +107,43 @@ in vec3 vPosition;
 out vec4 fragColor;
 
 void main() {
-    vec3 normal = normalize(vNormal);
-    vec3 viewDir = normalize(-vPosition);  // Вид из камеры (в видовом пространстве)
-    vec3 reflectDir = reflect(-uLightDir, normal);
+    vec3 N = normalize(vNormal);
+    vec3 V = normalize(-vPosition);
+    vec3 totalLight = vec3(0.0);
 
-    // Ambient
-    vec3 ambient = uAmbient * uLightColor;
+    // === 1. Направленный свет (как раньше) ===
+    vec3 L_dir = normalize(uLightDir);
+    vec3 R_dir = reflect(-L_dir, N);
 
-    // Diffuse
-    float diff = max(dot(normal, uLightDir), 0.0);
-    vec3 diffuse = diff * uDiffuse * uLightColor;
+    float diff_dir = max(dot(N, L_dir), 0.0);
+    float spec_dir = pow(max(dot(V, R_dir), 0.0), uShininess);
 
-    // Specular
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), uShininess);
-    vec3 specular = spec * uSpecular * uLightColor;
+    vec3 diffuse_dir = diff_dir * uDiffuse * uLightColor;
+    vec3 specular_dir = spec_dir * uSpecular * uLightColor;
 
-    vec3 result = ambient + diffuse + specular;
-    fragColor = vec4(result, 1.0);
+    totalLight += uAmbient * uLightColor + diffuse_dir + specular_dir;
+
+    // === 2. Точечный свет ===
+    vec3 L_point = uPointLightPos - vPosition;
+    float dist = length(L_point);
+    L_point = normalize(L_point); // направление к источнику
+
+    vec3 R_point = reflect(-L_point, N);
+
+    float diff_point = max(dot(N, L_point), 0.0);
+    float spec_point = pow(max(dot(V, R_point), 0.0), uShininess);
+
+    // Затухание: 1.0 / (k + d), можно настроить
+    float attenuation = 1.0 / (1.0 + uAttenuation * dist * dist);
+    vec3 diffuse_point = diff_point * uDiffuse * uPointLightColor;
+    vec3 specular_point = spec_point * uSpecular * uPointLightColor;
+
+    totalLight += attenuation * (diffuse_point + specular_point);
+
+    fragColor = vec4(totalLight, 1.0);
 }
 `;
+
 
 
 function createSphere(radius: number, segments: number = 16): {
@@ -300,7 +323,8 @@ function renderModel(
     projectionMatrix: mat4,
     normalMatrix: mat3,
     material: any,
-    lightDirView: vec3
+    lightDirView: vec3,
+    viewMatrix: mat4,
 ) {
     gl.useProgram(program);
 
@@ -316,18 +340,32 @@ function renderModel(
         gl.enableVertexAttribArray(normLoc);
     }
 
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uModelViewMatrix'), false, modelViewMatrix);
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uProjectionMatrix'), false, projectionMatrix);
-    gl.uniformMatrix3fv(gl.getUniformLocation(program, 'uNormalMatrix'), false, normalMatrix);
+    const modelViewMatrixLocation = gl.getUniformLocation(program, 'uModelViewMatrix');
+    const projectionMatrixLocation = gl.getUniformLocation(program, 'uProjectionMatrix');
+    const normalMatrixLocation = gl.getUniformLocation(program, 'uNormalMatrix');
 
+    gl.uniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix);
+    gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
+    gl.uniformMatrix3fv(normalMatrixLocation, false, normalMatrix);
+
+    // --- Направленный свет ---
     gl.uniform3fv(gl.getUniformLocation(program, 'uLightDir'), lightDirView);
     gl.uniform3fv(gl.getUniformLocation(program, 'uLightColor'), [0.5, 0.3, 0.5]);
 
+    // --- Точечный свет: позиция в мировых координатах ---
+    const pointLightWorldPos = vec3.fromValues(-3, 5, -2);
+    const pointLightViewPos = vec3.transformMat4(vec3.create(), pointLightWorldPos, viewMatrix);
+    gl.uniform3fv(gl.getUniformLocation(program, 'uPointLightPos'), pointLightViewPos);
+    gl.uniform3fv(gl.getUniformLocation(program, 'uPointLightColor'), [1.0, 1.0, 1.0]); // тёплый белый
+    gl.uniform1f(gl.getUniformLocation(program, 'uAttenuation'), 0.3); // регулирует, как быстро гаснет свет
+
+    // --- Материал ---
     gl.uniform3fv(gl.getUniformLocation(program, 'uAmbient'), material.ambient);
     gl.uniform3fv(gl.getUniformLocation(program, 'uDiffuse'), material.diffuse);
     gl.uniform3fv(gl.getUniformLocation(program, 'uSpecular'), material.specular);
     gl.uniform1f(gl.getUniformLocation(program, 'uShininess'), material.shininess);
 
+    // Рисуем
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indexBuffer);
     gl.drawElements(gl.TRIANGLES, buffers.vertexCount, gl.UNSIGNED_SHORT, 0);
 }
