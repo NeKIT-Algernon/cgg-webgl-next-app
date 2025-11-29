@@ -2,7 +2,7 @@ import { mat3, mat4, vec3 } from "gl-matrix";
 
 const globals =  {
     maxTask: 1,
-    sphereRadius: 3.0,
+    sphereRadius: 2.9,
     material1: {
         ambient:  [0.25, 0.20725, 0.20725] as [number, number, number],
         diffuse:  [1.0, 0.829, 0.829] as [number, number, number],
@@ -358,7 +358,7 @@ function renderModel(
     gl.uniform3fv(gl.getUniformLocation(program, 'uLightColor'), [0.5, 0.3, 0.5]);
 
     // Точечные источники
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < pointLights.length; i++) {
         const light = pointLights[i];
         gl.uniform3fv(gl.getUniformLocation(program, `uPointLightPos[${i}]`), light.pos);
         gl.uniform3fv(gl.getUniformLocation(program, `uPointLightColor[${i}]`), light.color);

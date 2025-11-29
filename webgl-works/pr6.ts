@@ -28,8 +28,6 @@ export const PR6: WorkType = {
     name: "Практика № 6",
     controls: [
         "Z/X - вращение вокруг OY",
-        "C/V - вращение вокруг OX",
-        "WASD - движение по осям",
         "numAdd / numSub - приблизить / отдалить",
     ],
 
@@ -127,36 +125,35 @@ export const PR6: WorkType = {
         const pointLights = [
             {
                 pos: vec3.fromValues(Math.sin(time * 0.7) * 5, 4, Math.cos(time * 0.7) * 5),
-                color: [1.0, 0.4, 0.4] as [number, number, number],
-                attenuation: 0.5
+                color: [1.0, 0.0, 0.0], // Красный
+                attenuation: 0.0
             },
             {
                 pos: vec3.fromValues(Math.cos(time * 0.5) * 6, 3, Math.sin(time * 0.5) * 3),
-                color: [0.4, 1.0, 0.6] as [number, number, number],
-                attenuation: 0.3
+                color: [0.0, 1.0, 0.0], // Зелёный
+                attenuation: 0.0
             },
             {
                 pos: vec3.fromValues(-4, Math.sin(time) * 3 + 3, -2),
-                color: [0.8, 0.8, 1.0] as [number, number, number],
-                attenuation: 0.0 // без затухания — "бесконечный"
+                color: [0.0, 0.0, 1.0], // Голубой
+                attenuation: 0.0
             },
             {
-                pos: vec3.fromValues(Math.cos(time * 0.5) * 6, 3, Math.sin(time * 0.5) * 3),
-                color: [0, 1.0, 0] as [number, number, number],
-                attenuation: 0
+                pos: vec3.fromValues(0, 6, Math.sin(time * 1.2) * 4),
+                color: [1.0, 1.0, 0.0], // Жёлтый
+                attenuation: 0.0
             },
+            /*{
+                pos: vec3.fromValues(Math.cos(time * 0.8) * 3, 1, Math.sin(time * 0.8) * 3),
+                color: [1.0, 0.5, 0.0],
+                attenuation: 0.0
+            },*/
             {
-                pos: vec3.fromValues(Math.cos(time * 0.5) * 6, 3, Math.sin(time * 0.5) * 3),
-                color: [1, 0, 0] as [number, number, number],
-                attenuation: 0
-            },
+                pos: vec3.fromValues(18, 3, 0), // рядом с правой сферой
+                color: [1.0, 1.0, 1.0], // Белый
+                attenuation: 0.2
+            }
         ];
-
-        // Преобразуем позиции источников в **видовое пространство**
-        const pointLightsInView = pointLights.map(light => ({
-            ...light,
-            pos: vec3.transformMat4(vec3.create(), light.pos, viewMatrix)
-        }));
 
         // Матрица вида: камера смотрит в центр
         mat4.lookAt(
@@ -166,6 +163,16 @@ export const PR6: WorkType = {
             [0, 1, 0]                // вектор "вверх"
         );
 
+
+        // Преобразуем позиции источников в **видовое пространство**
+        const pointLightsInView = pointLights.map((light, i) => (
+                {
+                    ...light,
+                    pos: vec3.transformMat4(vec3.create(), light.pos, viewMatrix)
+                })
+        );
+
+
         // --- Материал и свет (если используется Phong) ---
         const lightDirWorld = vec3.normalize(vec3.create(), [1, 1, -1]); // свет из правого верхнего угла
         const lightDirView = vec3.transformMat3(vec3.create(), lightDirWorld, viewMatrix);
@@ -174,7 +181,7 @@ export const PR6: WorkType = {
 
 
         const radius = globals.sphereRadius;
-        const baseGap = 4 * radius; // начальное расстояние между центрами
+        const baseGap = 6 * radius; // начальное расстояние между центрами
         const minGap = 2 * radius; // минимальное расстояние между центрами
 
         const maxTravel = (baseGap - minGap) / 2; // на сколько каждая может "въехать"
