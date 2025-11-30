@@ -48,18 +48,26 @@ export const fsSourceTexture = `#version 300 es
 
   in vec2 vTexCoord;
 
-  uniform sampler2D uSampler;
-  uniform bool uUseTexture;
+  uniform sampler2D uSampler;        // основная текстура
+  uniform sampler2D uSpecularMap;    // карта отражений
+  uniform bool uUseSpecular;         // вкл/выкл спецэффект
 
   out vec4 fragColor;
 
   void main() {
-    if (uUseTexture) {
-      fragColor = texture(uSampler, vTexCoord);
-    } else {
-      // Защитный цвет, если текстура выключена
-      fragColor = vec4(0.3, 0.3, 1.0, 1.0); // синий
-    }
+    // Основной цвет из диффузной текстуры
+    vec4 baseColor = texture(uSampler, vTexCoord);
+
+    // Получаем интенсивность бликов из спецкарты (берём, например, красный канал)
+    float specularIntensity = uUseSpecular ? texture(uSpecularMap, vTexCoord).r : 0.0;
+
+    // Создаём "бликовый" эффект: белый свет в зависимости от карты
+    vec3 specularColor = vec3(1.0, 1.0, 1.0) * specularIntensity;
+
+    // Комбинируем: базовый цвет + блики
+    vec3 finalColor = baseColor.rgb + specularColor;
+
+    fragColor = vec4(finalColor, baseColor.a);
   }
 `;
 
@@ -111,7 +119,6 @@ export function loadTexture(
 
     callback(texture);
 
-    // ✅ Отправляем событие на canvas
     const canvas = gl.canvas as HTMLCanvasElement;
     canvas.dispatchEvent(new CustomEvent("textureloaded"));
   };

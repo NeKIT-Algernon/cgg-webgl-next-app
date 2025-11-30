@@ -1,5 +1,4 @@
-// webgl-works/pr7.ts
-
+// ... импорты те же ...
 import { mat4 } from "gl-matrix";
 import { WebGLSceneOptionsType, WorkType } from "@/types/webGLWork";
 import {
@@ -12,108 +11,81 @@ import {
     defaultTextureSettings,
 } from "./pr7-src";
 
-const IMAGE_URL = "/textures/sample.jpg"; // Положи изображение в public/textures/
+const BASE_TEXTURE_URL = "/textures/sample.jpg";
+const SPECULAR_MAP_URL = "/textures/sample_specular.jpg"; // ← должна лежать в public/textures/
 
 let program: WebGLProgram | null = null;
 let positionBuffer: WebGLBuffer | null = null;
 let texCoordBuffer: WebGLBuffer | null = null;
 let indexBuffer: WebGLBuffer | null = null;
-let texture: WebGLTexture | null = null;
-let settings: TextureSettings = { ...defaultTextureSettings };
+let baseTexture: WebGLTexture | null = null;
+let specularTexture: WebGLTexture | null = null;
+let settings = {
+    useSpecular: true,
+};
 
 export const PR7: WorkType = {
     id: "7",
     name: "Практика № 7",
     controls: [
-        "E - вкл/выкл карта отражений",
+        "E - вкл/выкл карта отражений (specular map)",
         "R - вращение трапеции вокруг оси Y",
     ],
 
-
     keyHandler: (event: KeyboardEvent, sceneOptions: WebGLSceneOptionsType) => {
-        if (!texture) return;
-
-        const gl = (document.querySelector("canvas") as HTMLCanvasElement)
-            ?.getContext("webgl2");
-
-        if (!gl) return;
-
-        let updated = false;
-
         switch (event.code) {
-            case "KeyE": // Вкл/выкл "карты отражений" → интерпретируем как вкл/выкл текстуры
-                settings.useTexture = !settings.useTexture;
-                console.log("Карта отражений:", settings.useTexture ? "включена" : "выключена");
+            case "KeyE":
+                settings.useSpecular = !settings.useSpecular;
+                console.log("Карта отражений:", settings.useSpecular ? "включена" : "выключена");
                 sceneOptions.changed = (sceneOptions.changed || 0) + 1;
                 break;
 
-            case "KeyR": // Вращение вокруг оси Y
+            case "KeyR":
                 sceneOptions.angle = (sceneOptions.angle || 0) + 5;
                 if (sceneOptions.angle >= 360) sceneOptions.angle -= 360;
                 console.log("Вращение вокруг Y: угол =", sceneOptions.angle);
                 sceneOptions.changed = (sceneOptions.changed || 0) + 1;
                 break;
-                return; // выходим, чтобы не вызывать renderScene дважды
-        }
-
-        if (updated) {
-            configureTexture(gl, texture, settings);
-            sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1; // триггер ререндера
         }
     },
 
-
     initialize(gl, sceneOptions: WebGLSceneOptionsType) {
-        // --- 1. Компиляция шейдерной программы ---
+        // --- 1. Компиляция шейдеров ---
         const vs = gl.createShader(gl.VERTEX_SHADER);
-        if (!vs) {
-            console.error("Не удалось создать vertex шейдер");
-            return;
-        }
+        if (!vs) return console.error("Не удалось создать vertex шейдер");
         gl.shaderSource(vs, vsSourceTexture);
         gl.compileShader(vs);
         if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
-            console.error("Ошибка компиляции vertex шейдера:", gl.getShaderInfoLog(vs));
+            console.error("Ошибка компиляции VS:", gl.getShaderInfoLog(vs));
             gl.deleteShader(vs);
             return;
         }
 
         const fs = gl.createShader(gl.FRAGMENT_SHADER);
-        if (!fs) {
-            console.error("Не удалось создать fragment шейдер");
-            return;
-        }
+        if (!fs) return console.error("Не удалось создать fragment шейдер");
         gl.shaderSource(fs, fsSourceTexture);
         gl.compileShader(fs);
         if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-            console.error("Ошибка компиляции fragment шейдера:", gl.getShaderInfoLog(fs));
+            console.error("Ошибка компиляции FS:", gl.getShaderInfoLog(fs));
             gl.deleteShader(fs);
             return;
         }
 
         program = gl.createProgram();
-        if (!program) {
-            console.error("Не удалось создать шейдерную программу");
-            gl.deleteShader(vs);
-            gl.deleteShader(fs);
-            return;
-        }
-
+        if (!program) return;
         gl.attachShader(program, vs);
         gl.attachShader(program, fs);
         gl.linkProgram(program);
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            console.error("Ошибка линковки программы:", gl.getProgramInfoLog(program));
+            console.error("Ошибка линковки:", gl.getProgramInfoLog(program));
             gl.deleteProgram(program);
-            program = null;
             return;
         }
 
-        // Удаляем шейдеры — они уже не нужны
         gl.deleteShader(vs);
         gl.deleteShader(fs);
 
-        // --- 2. Создание буферов ---
+        // --- 2. Буферы ---
         const trapezoid = createTrapezoidWithTexCoords();
 
         positionBuffer = gl.createBuffer();
@@ -128,85 +100,78 @@ export const PR7: WorkType = {
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(trapezoid.indices), gl.STATIC_DRAW);
 
-        // --- 3. Загрузка текстуры ---
-        loadTexture(gl, IMAGE_URL, (loadedTexture) => {
-            texture = loadedTexture;
-            if (texture) {
-                configureTexture(gl, texture, settings);
-            }
-            sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1;
+        // --- 3. Загрузка текстур ---
+        loadTexture(gl, BASE_TEXTURE_URL, (tex) => {
+            baseTexture = tex;
+            const canvas = gl.canvas as HTMLCanvasElement;
+            canvas.dispatchEvent(new CustomEvent("textureloaded"));
         });
 
-        // --- 4. Включаем тест глубины (на всякий случай) ---
+        loadTexture(gl, SPECULAR_MAP_URL, (tex) => {
+            specularTexture = tex;
+            const canvas = gl.canvas as HTMLCanvasElement;
+            canvas.dispatchEvent(new CustomEvent("textureloaded"));
+        });
+
         gl.enable(gl.DEPTH_TEST);
     },
 
     render(gl, sceneOptions: WebGLSceneOptionsType) {
-        if (!program || !positionBuffer || !texCoordBuffer || !indexBuffer) {
+        if (!program || !positionBuffer || !texCoordBuffer || !indexBuffer || !baseTexture || !specularTexture) {
             console.warn("Ресурсы не инициализированы");
             return;
         }
 
-        // --- 1. Очистка экрана ---
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // --- 2. Настройка матриц ---
+        // Матрицы
         const projectionMatrix = mat4.create();
         const modelViewMatrix = mat4.create();
-
         const aspect = gl.canvas.width / gl.canvas.height;
-        // Ортографическая проекция — лучше для 2D/полу-3D
         mat4.ortho(projectionMatrix, -aspect, aspect, -1, 1, 0.1, 100);
+        mat4.lookAt(modelViewMatrix, [0, 0, 5], [0, 0, 0], [0, 1, 0]);
+        mat4.rotate(modelViewMatrix, modelViewMatrix, (sceneOptions.angle || 0) * (Math.PI / 180), [0, 1, 0]);
 
-        // Видовая матрица: камера сзади
-        mat4.lookAt(
-            modelViewMatrix,
-            [0, 0, 5],  // камера
-            [0, 0, 0],  // центр
-            [0, 1, 0]   // вверх
-        );
-
-        // Добавляем вращение вокруг оси Y
-        const angleY = (sceneOptions.angle || 0) * (Math.PI / 180);
-        mat4.rotate(modelViewMatrix, modelViewMatrix, angleY, [0, 1, 0]);
-
-        // --- 3. Активируем программу ---
+        // Используем программу
         gl.useProgram(program);
 
-        // --- 4. Привязываем буфер позиций ---
+        // Позиции
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        const positionLocation = gl.getAttribLocation(program, "aPosition");
-        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(positionLocation);
+        const positionLoc = gl.getAttribLocation(program, "aPosition");
+        gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(positionLoc);
 
-        // --- 5. Привязываем буфер текстурных координат ---
+        // Текстурные координаты
         gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-        const texCoordLocation = gl.getAttribLocation(program, "aTexCoord");
-        gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(texCoordLocation);
+        const texCoordLoc = gl.getAttribLocation(program, "aTexCoord");
+        gl.vertexAttribPointer(texCoordLoc, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(texCoordLoc);
 
-        // --- 6. Привязываем индексный буфер ---
+        // Индексы
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
-        // --- 7. Настройка текстуры ---
-        if (texture) {
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-        }
+        // Текстуры: unit 0 — основная, unit 1 — карта отражений
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, baseTexture);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, specularTexture);
 
-        // --- 8. Передаём uniform'ы ---
-        const projectionMatrixLocation = gl.getUniformLocation(program, "uProjectionMatrix");
-        const modelViewMatrixLocation = gl.getUniformLocation(program, "uModelViewMatrix");
-        const useTextureLocation = gl.getUniformLocation(program, "uUseTexture");
+        // Uniform'ы
+        const projLoc = gl.getUniformLocation(program, "uProjectionMatrix");
+        const mvLoc = gl.getUniformLocation(program, "uModelViewMatrix");
+        const useSpecularLoc = gl.getUniformLocation(program, "uUseSpecular");
+        const samplerLoc = gl.getUniformLocation(program, "uSampler");
+        const specularMapLoc = gl.getUniformLocation(program, "uSpecularMap");
 
-        gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
-        gl.uniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix);
-        gl.uniform1i(useTextureLocation, settings.useTexture ? 1 : 0); // bool → int
+        gl.uniformMatrix4fv(projLoc, false, projectionMatrix);
+        gl.uniformMatrix4fv(mvLoc, false, modelViewMatrix);
+        gl.uniform1i(useSpecularLoc, settings.useSpecular ? 1 : 0);
+        gl.uniform1i(samplerLoc, 0);           // TEXTURE0
+        gl.uniform1i(specularMapLoc, 1);       // TEXTURE1
 
-        // --- 9. Рисуем трапецию ---
-        const indexCount = 6; // 2 треугольника
-        gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_SHORT, 0);
+        // Рисуем
+        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     },
 
     dispose(gl) {
@@ -214,12 +179,14 @@ export const PR7: WorkType = {
         if (positionBuffer) gl.deleteBuffer(positionBuffer);
         if (texCoordBuffer) gl.deleteBuffer(texCoordBuffer);
         if (indexBuffer) gl.deleteBuffer(indexBuffer);
-        if (texture) gl.deleteTexture(texture);
+        if (baseTexture) gl.deleteTexture(baseTexture);
+        if (specularTexture) gl.deleteTexture(specularTexture);
 
         program = null;
         positionBuffer = null;
         texCoordBuffer = null;
         indexBuffer = null;
-        texture = null;
+        baseTexture = null;
+        specularTexture = null;
     },
 };
