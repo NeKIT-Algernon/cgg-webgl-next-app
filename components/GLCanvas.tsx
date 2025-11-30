@@ -105,6 +105,12 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
       renderScene();
     }
 
+    const handleTextureLoaded = () => {
+      renderScene(); // 
+    };
+
+    canvas.addEventListener("textureloaded", handleTextureLoaded);
+
     // Очистка
     return () => {
       if (animationId) {

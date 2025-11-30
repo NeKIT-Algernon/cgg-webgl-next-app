@@ -25,12 +25,10 @@ export const PR7: WorkType = {
     id: "7",
     name: "Практика № 7",
     controls: [
-        "Q/W - переключение minFilter",
-        "A/D - переключение wrap режима по S",
-        "Y/U - wrap по T",
-        "T - вкл/выкл текстурирование",
-        "R - перезагрузить текстуру",
+        "E - вкл/выкл карта отражений",
+        "R - вращение трапеции вокруг оси Y",
     ],
+
 
     keyHandler: (event: KeyboardEvent, sceneOptions: WebGLSceneOptionsType) => {
         if (!texture) return;
@@ -43,95 +41,18 @@ export const PR7: WorkType = {
         let updated = false;
 
         switch (event.code) {
-            case "KeyQ": // minFilter: уменьшаем
-                if (settings.minFilter === gl.LINEAR) {
-                    settings.minFilter = gl.NEAREST;
-                } else if (settings.minFilter === gl.NEAREST) {
-                    settings.minFilter = gl.LINEAR;
-                } else if (settings.minFilter === gl.LINEAR_MIPMAP_LINEAR) {
-                    settings.minFilter = gl.LINEAR;
-                } else {
-                    settings.minFilter = gl.LINEAR_MIPMAP_LINEAR;
-                }
-                console.log("minFilter:", settings.minFilter);
-                updated = true;
-                break;
-
-            case "KeyW": // minFilter: увеличиваем
-                if (settings.minFilter === gl.LINEAR) {
-                    settings.minFilter = gl.LINEAR_MIPMAP_LINEAR;
-                } else if (settings.minFilter === gl.LINEAR_MIPMAP_LINEAR) {
-                    settings.minFilter = gl.LINEAR;
-                } else if (settings.minFilter === gl.NEAREST) {
-                    settings.minFilter = gl.LINEAR;
-                }
-                console.log("minFilter:", settings.minFilter);
-                updated = true;
-                break;
-
-            case "KeyA": // wrapS: предыдущий режим
-                if (settings.wrapS === gl.REPEAT) {
-                    settings.wrapS = gl.CLAMP_TO_EDGE;
-                } else if (settings.wrapS === gl.CLAMP_TO_EDGE) {
-                    settings.wrapS = gl.MIRRORED_REPEAT;
-                } else {
-                    settings.wrapS = gl.REPEAT;
-                }
-                console.log("wrapS:", settings.wrapS);
-                updated = true;
-                break;
-
-            case "KeyD": // wrapS: следующий режим
-                if (settings.wrapS === gl.REPEAT) {
-                    settings.wrapS = gl.MIRRORED_REPEAT;
-                } else if (settings.wrapS === gl.MIRRORED_REPEAT) {
-                    settings.wrapS = gl.CLAMP_TO_EDGE;
-                } else {
-                    settings.wrapS = gl.REPEAT;
-                }
-                console.log("wrapS:", settings.wrapS);
-                updated = true;
-                break;
-
-            case "KeyY": // wrapT: предыдущий
-                if (settings.wrapT === gl.REPEAT) {
-                    settings.wrapT = gl.CLAMP_TO_EDGE;
-                } else if (settings.wrapT === gl.CLAMP_TO_EDGE) {
-                    settings.wrapT = gl.MIRRORED_REPEAT;
-                } else {
-                    settings.wrapT = gl.REPEAT;
-                }
-                console.log("wrapT:", settings.wrapT);
-                updated = true;
-                break;
-
-            case "KeyU": // wrapT: следующий
-                if (settings.wrapT === gl.REPEAT) {
-                    settings.wrapT = gl.MIRRORED_REPEAT;
-                } else if (settings.wrapT === gl.MIRRORED_REPEAT) {
-                    settings.wrapT = gl.CLAMP_TO_EDGE;
-                } else {
-                    settings.wrapT = gl.REPEAT;
-                }
-                console.log("wrapT:", settings.wrapT);
-                updated = true;
-                break;
-
-            case "KeyT": // toggle текстурирование
+            case "KeyE": // Вкл/выкл "карты отражений" → интерпретируем как вкл/выкл текстуры
                 settings.useTexture = !settings.useTexture;
-                console.log("useTexture:", settings.useTexture);
-                updated = true;
+                console.log("Карта отражений:", settings.useTexture ? "включена" : "выключена");
+                sceneOptions.changed = (sceneOptions.changed || 0) + 1;
                 break;
 
-            case "KeyR": // Перезагрузить текстуру
-                loadTexture(gl, IMAGE_URL, (newTexture) => {
-                    if (newTexture) {
-                        if (texture) gl.deleteTexture(texture);
-                        texture = newTexture;
-                        configureTexture(gl, texture, settings);
-                        console.log("Текстура перезагружена");
-                    }
-                });
+            case "KeyR": // Вращение вокруг оси Y
+                sceneOptions.angle = (sceneOptions.angle || 0) + 5;
+                if (sceneOptions.angle >= 360) sceneOptions.angle -= 360;
+                console.log("Вращение вокруг Y: угол =", sceneOptions.angle);
+                sceneOptions.changed = (sceneOptions.changed || 0) + 1;
+                break;
                 return; // выходим, чтобы не вызывать renderScene дважды
         }
 
@@ -213,6 +134,7 @@ export const PR7: WorkType = {
             if (texture) {
                 configureTexture(gl, texture, settings);
             }
+            sceneOptions.changed = (sceneOptions.changed == 1) ? 0 : 1;
         });
 
         // --- 4. Включаем тест глубины (на всякий случай) ---
@@ -244,6 +166,10 @@ export const PR7: WorkType = {
             [0, 0, 0],  // центр
             [0, 1, 0]   // вверх
         );
+
+        // Добавляем вращение вокруг оси Y
+        const angleY = (sceneOptions.angle || 0) * (Math.PI / 180);
+        mat4.rotate(modelViewMatrix, modelViewMatrix, angleY, [0, 1, 0]);
 
         // --- 3. Активируем программу ---
         gl.useProgram(program);
