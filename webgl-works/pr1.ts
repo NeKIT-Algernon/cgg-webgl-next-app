@@ -18,6 +18,7 @@ export const PR1: WorkType = {
     },
     
     render(gl, sceneOptions: WebGLSceneOptionsType){
+        console.log("Render PR1");
         // Инициализация шейдерных программ
         const shaderProgramTri1 = initShaderProgram(gl, vsSource, fsSourcetri1);
         const shaderProgramTri2 = initShaderProgram(gl, vsSource, fsSourcetri2);

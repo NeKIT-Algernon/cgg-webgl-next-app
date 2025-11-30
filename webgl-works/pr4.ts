@@ -73,12 +73,17 @@ export const PR4: WorkType = {
                 break;
             case 'KeyZ':
                 if (sceneOptions.currentTask != 6) return;
-                sceneOptions.angle+=2;
+                sceneOptions.angle += 2;
                 if (sceneOptions.angle == 360) sceneOptions.angle = 0;
                 break;
             case 'KeyX':
                 if (sceneOptions.currentTask != 6) return;
-                sceneOptions.angle-=2;
+                sceneOptions.angle -= 2;
+                if (sceneOptions.angle == -360) sceneOptions.angle = 0;
+                break;
+            case 'KeyM':
+                if (sceneOptions.currentTask != 6) return;
+                sceneOptions.angle -= 2;
                 if (sceneOptions.angle == -360) sceneOptions.angle = 0;
                 break;
         }
@@ -88,7 +93,8 @@ export const PR4: WorkType = {
 
     },
 
-    render(gl, sceneOptions: WebGLSceneOptionsType){
+    render(gl, sceneOptions: WebGLSceneOptionsType) {
+        console.log("Render PR4");
         const mutable = {
             figures: [] as number[][][], // Фигуры для рендера
             colors: [] as number[], // Цвета для отрисовки
@@ -100,6 +106,7 @@ export const PR4: WorkType = {
         // Изменения по заданиям
         switch (sceneOptions.currentTask) {
             case 1:
+                gl.disable(gl.DEPTH_TEST);
                 sceneOptions.primitive = gl.TRIANGLES;
                 mutable.figures = [fig1, fig2, fig3];
                 mutable.fsShaders = [fsSourceRed, fsSourceBlue, fsSourceGreen]
@@ -217,7 +224,7 @@ export const PR4: WorkType = {
         return;
     },
 
-    dispose(gl){
+    dispose(gl) {
 
     },
 }

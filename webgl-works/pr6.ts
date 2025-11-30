@@ -97,6 +97,7 @@ export const PR6: WorkType = {
     },
 
     render(gl, sceneOptions: WebGLSceneOptionsType) {
+        console.log("Render PR6");
         const projectionMatrix = mat4.create(); // матрица проекции
         const viewMatrix = mat4.create();
         const modelMatrix = mat4.create();

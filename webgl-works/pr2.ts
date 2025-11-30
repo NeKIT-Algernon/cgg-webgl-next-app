@@ -113,6 +113,7 @@ export const PR2: WorkType = {
 
     },
     render(gl, sceneOptions: WebGLSceneOptionsType){
+        console.log("Render PR2");
         const mutable = {
             verts: [] as number[][], // Вершины для отрисовки
             colors: [] as number[], // Цвета для отрисовки

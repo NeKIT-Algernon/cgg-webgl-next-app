@@ -117,6 +117,7 @@ export const PR7: WorkType = {
     },
 
     render(gl, sceneOptions: WebGLSceneOptionsType) {
+        console.log("Render PR7");
         if (!program || !positionBuffer || !texCoordBuffer || !indexBuffer || !baseTexture || !specularTexture) {
             console.warn("Ресурсы не инициализированы");
             return;
@@ -175,18 +176,49 @@ export const PR7: WorkType = {
     },
 
     dispose(gl) {
+        // Удаляем WebGL-ресурсы
         if (program) gl.deleteProgram(program);
         if (positionBuffer) gl.deleteBuffer(positionBuffer);
         if (texCoordBuffer) gl.deleteBuffer(texCoordBuffer);
+        //if (normalBuffer) gl.deleteBuffer(normalBuffer);
         if (indexBuffer) gl.deleteBuffer(indexBuffer);
         if (baseTexture) gl.deleteTexture(baseTexture);
         if (specularTexture) gl.deleteTexture(specularTexture);
 
+        // === Сбрасываем состояние WebGL ===
+        // ОтключаемVertexAttribArray для всех, что мы включали
+        const positionLoc = gl.getAttribLocation(program!, "aPosition");
+        const texCoordLoc = gl.getAttribLocation(program!, "aTexCoord");
+        const normalLoc = gl.getAttribLocation(program!, "aNormal");
+
+        if (positionLoc !== -1) gl.disableVertexAttribArray(positionLoc);
+        if (texCoordLoc !== -1) gl.disableVertexAttribArray(texCoordLoc);
+        if (normalLoc !== -1) gl.disableVertexAttribArray(normalLoc);
+
+        // Отвязываем буферы
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        // Отвязываем текстуры
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        // Отключаем тесты
+        gl.disable(gl.DEPTH_TEST);
+        gl.disable(gl.CULL_FACE);
+        gl.disable(gl.BLEND);
+
+        // Сбрасываем viewport? Не обязательно, но можно
+        // gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+        // === Обнуляем ссылки ===
         program = null;
         positionBuffer = null;
         texCoordBuffer = null;
         indexBuffer = null;
         baseTexture = null;
         specularTexture = null;
-    },
-};
+    }
+}

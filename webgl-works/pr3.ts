@@ -84,6 +84,7 @@ export const PR3: WorkType = {
     },
 
     render(gl, sceneOptions: WebGLSceneOptionsType){
+        console.log("Render PR3");
         const mutable = {
             figures: [] as number[][][], // Фигуры для рендера
             colors: [] as number[], // Цвета для отрисовки

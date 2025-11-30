@@ -11,6 +11,7 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
   const workRef = useRef(activeWork);
   const sceneOptionsRef = useRef(sceneOptions);
   const isInitializedRef = useRef(false);
+  const animationIdRef = useRef(0);
 
   // Обновляем ref'ы при изменении зависимостей
   useEffect(() => {
@@ -35,7 +36,7 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
     }
   }, []);
 
-  // Рендерим сцену
+  // Рендер сцены — полагается на ref'ы, не зависит от props
   const renderScene = useCallback(() => {
     const gl = glRef.current;
     const work = workRef.current;
@@ -52,7 +53,7 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
       : sceneOptionsRef.current;
 
     work.render(gl, sceneOptionsToRender);
-  }, []);
+  }, []); // ✅ Остаётся стабильной
 
   // Обработчик клавиш
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -64,11 +65,10 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
 
     if (JSON.stringify(sceneOptionsRef.current) !== JSON.stringify(newSceneOptions)) {
       setSceneOptions(newSceneOptions);
-      renderScene(); // 👉 рендерим вручную
     }
-  }, [setSceneOptions, renderScene]);
+  }, [setSceneOptions]);
 
-  // === Основной эффект: инициализация и анимация ===
+  // === Инициализация WebGL ===
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -83,47 +83,47 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
 
     glRef.current = gl;
 
-    const work = workRef.current;
-    if (work && !isInitializedRef.current) {
-      work.initialize(gl, sceneOptionsRef.current);
+    // Инициализируем только при смене активной работы
+    if (workRef.current && !isInitializedRef.current) {
+      workRef.current.initialize(gl, sceneOptionsRef.current);
       isInitializedRef.current = true;
     }
 
-    let animationId: number;
-
-    // Только для PR6 — запускаем анимационный цикл
-    if (work?.id === "6") {
+    // Запускаем анимацию только для PR6
+    if (workRef.current?.id === "6") {
       const animate = () => {
-        renderScene(); // использует `time` внутри
-        animationId = requestAnimationFrame(animate);
+        renderScene();
+        animationIdRef.current = requestAnimationFrame(animate);
       };
       animate();
     }
 
-    // Для других работ — рендер один раз
-    if (work?.id !== "6") {
-      renderScene();
-    }
-
-    const handleTextureLoaded = () => {
-      renderScene(); // 
-    };
-
+    // Подписка на текстуры
+    const handleTextureLoaded = () => renderScene();
     canvas.addEventListener("textureloaded", handleTextureLoaded);
 
     // Очистка
     return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
       }
       if (isInitializedRef.current) {
-        if (gl && work?.dispose) {
-          work.dispose(gl);
+        if (gl && workRef.current?.dispose) {
+          workRef.current.dispose(gl);
         }
         isInitializedRef.current = false;
       }
+      canvas.removeEventListener("textureloaded", handleTextureLoaded);
     };
-  }, [activeWork, setupCanvasSize, renderScene]);
+  }, [activeWork, setupCanvasSize]); // 🔁 Только при смене активной работы
+
+  // === Отдельный эффект — вызов рендера при изменении sceneOptions или activeWork ===
+  useEffect(() => {
+    if (isInitializedRef.current && workRef.current?.id !== "6") {
+      // Для всех работ, кроме PR6, просто рендерим при изменении опций
+      renderScene();
+    }
+  }, [sceneOptions, activeWork, renderScene]);
 
   // Подписка на keydown
   useEffect(() => {

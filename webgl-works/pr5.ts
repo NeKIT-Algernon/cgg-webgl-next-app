@@ -91,6 +91,7 @@ export const PR5: WorkType = {
     },
 
     render(gl, sceneOptions: WebGLSceneOptionsType) {
+        console.log("Render PR5");
         // Создаем матрицы
         const modelViewMatrix = mat4.create();
 
