@@ -8,10 +8,8 @@ import {
     createShaderProgram,
     setupModelBuffers,
     renderModel,
-
 } from "./pr5-src";
 import { Mesh } from "webgl-obj-loader";
-import { fsSourceRed, vsSource } from "./pr5-src";
 import { cart } from "./cart";
 
 let model;

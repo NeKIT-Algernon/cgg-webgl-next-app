@@ -50,33 +50,6 @@ void main() {
     fragColor = vec4(objectColor * diff, 1.0);
 }`;
 
-const fsSourceRed = `#version 300 es
-precision mediump float;
-out vec4 fragColor;
-
-void main() {
-    fragColor = vec4(1.0, 0.0, 0.0, 1.0);
-}
-`;
-
-const vsSource = `#version 300 es
-    in vec4 aVertexPosition;
-    in vec4 aVertexColor;
-
-    uniform mat4 uModelViewMatrix;
-    uniform mat4 uProjectionMatrix;
-    uniform mat4 uTransformMatrix;
-    uniform float uPointSize;
-
-    flat out vec4 vColor;
-
-    void main(void) {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * uTransformMatrix  * aVertexPosition;
-        gl_PointSize = uPointSize;
-        vColor = aVertexColor;
-    }
-`;
-
 function compileShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader {
     const shader = gl.createShader(type);
     if (!shader) throw new Error('Не удалось создать шейдер');
@@ -237,8 +210,6 @@ function renderModel(
 
 export {
     globals,
-    fsSourceRed,
-    vsSource,
     createShaderProgram,
     setupModelBuffers,
     renderModel,

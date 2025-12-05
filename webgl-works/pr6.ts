@@ -4,7 +4,6 @@ import { initShaderProgram } from "./webgl-help/initShaders";
 import { initBuffers } from "./webgl-help/initBuffers";
 import { renderAll } from "./webgl-help/draw";
 import { Mesh } from "webgl-obj-loader";
-import { fsSourceRed, vsSource } from "./pr5-src";
 import { cart } from "./cart";
 import { globals, createSphere, setupModelBuffers, createShaderProgram, renderModel } from "./pr6-src";
 

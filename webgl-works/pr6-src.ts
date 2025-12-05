@@ -17,54 +17,6 @@ const globals =  {
     }
 }
 
-// ... предыдущий код ...
-/*
-export const vsSourceLighting = `#version 300 es
-in vec3 aPosition;
-in vec3 aNormal;
-
-uniform mat4 uModelViewMatrix;
-uniform mat4 uProjectionMatrix;
-uniform mat3 uNormalMatrix;
-
-out vec3 vNormal;
-out vec3 vPosition;
-
-void main() {
-    vNormal = normalize(uNormalMatrix * aNormal);
-    vPosition = vec3(uModelViewMatrix * vec4(aPosition, 1.0));
-    gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
-}
-`;
-
-export const fsSourceLighting = `#version 300 es
-precision mediump float;
-
-in vec3 vNormal;
-in vec3 vPosition;
-
-out vec4 fragColor;
-
-void main() {
-    // Цвет света
-    vec3 lightColor = vec3(1, 1, 1);
-    
-    vec3 lightDir = normalize(vec3(-1.0, -1.0, 0.0));
-    
-    // Нормаль (уже в видовом пространстве)
-    vec3 normal = normalize(vNormal);
-    
-    // Диффузное освещение (Lambert)
-    float diff = max(dot(normal, -lightDir), 0.0);
-    
-    // Итоговый цвет
-    vec3 result = lightColor * diff;
-    
-    fragColor = vec4(result, 1.0);
-}
-`;
-*/
-
 export const vsSourcePhong = `#version 300 es
 in vec3 aPosition;
 in vec3 aNormal;
