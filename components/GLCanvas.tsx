@@ -69,6 +69,22 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
   }, [setSceneOptions]);
 
   // === Инициализация WebGL ===
+
+useEffect(() => {
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+
+  const handleSceneReady = () => {
+    renderScene();
+  };
+
+  canvas.addEventListener("sceneready", handleSceneReady);
+  return () => {
+    canvas.removeEventListener("sceneready", handleSceneReady);
+  };
+}, [renderScene]);
+
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;

@@ -1,5 +1,6 @@
 //import { Dispatch, SetStateAction } from 'react';
 
+import { RenderModelType } from "@/webgl-works/kr-src";
 import { mat4 } from "gl-matrix";
 
 
@@ -61,6 +62,11 @@ interface WebGLSceneOptionsType {
   pointSize: number,
   angle: number,
   changed?: number,
+  ready?: boolean,
+
+  modelData?: {
+    carrot?: RenderModelType
+  }
 }
 
 // Типы для загруженной модели
