@@ -54,6 +54,14 @@ interface WebGLRenderInfoType {
   transformMatrices?: mat4[],
 }
 
+type CarrotState = {
+  x: number;
+  z: number;
+  y: number;
+  falling: boolean;
+  speedY: number;
+};
+
 // Настройки рендера сцены
 interface WebGLSceneOptionsType {
   currentTask: number,
@@ -65,7 +73,8 @@ interface WebGLSceneOptionsType {
   ready?: boolean,
 
   modelData?: {
-    carrot?: RenderModelType
+    carrot?: RenderModelType,
+    cauldron?: RenderModelType,
   }
 }
 
