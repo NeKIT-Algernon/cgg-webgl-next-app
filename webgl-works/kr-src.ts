@@ -2,29 +2,43 @@
 import { mat4, mat3, vec3 } from "gl-matrix";
 import { WebGLSceneOptionsType } from "@/types/webGLWork";
 
-// === Типы ===
-export type GLTFModel = {
+/// === Типы ===
+
+export type GLTFModelPart = {
   vertices: number[];
   normals: number[];
-  indices: number[];
   texCoords: number[];
+  indices: number[];
+  textureData: ArrayBuffer | null;
+  mimeType: string;
 };
 
-export type RenderModelType = {
-  buffers: {
-    vertex: WebGLBuffer;
-    normal: WebGLBuffer | null;
-    texCoord: WebGLBuffer | null;
-    index: WebGLBuffer;
-    count: number;
-    indexType: number;
-  };
-  program: WebGLProgram;
-  modelMatrix: mat4;
+export type GLTFModel = {
+  parts: GLTFModelPart[];
+};
+
+export type RenderModelPartBuffers = {
+  vertex: WebGLBuffer;
+  normal: WebGLBuffer | null;
+  texCoord: WebGLBuffer | null;
+  index: WebGLBuffer;
+  count: number;
+  indexType: number;
+};
+
+export type RenderModelPart = {
+  buffers: RenderModelPartBuffers;
   texture: WebGLTexture;
 };
 
+export type RenderModelType = {
+  parts: RenderModelPart[];
+  program: WebGLProgram;
+  modelMatrix: mat4;
+};
+
 let globalCarrot: RenderModelType | null = null;
+
 
 
 // === Шейдеры ===
@@ -87,74 +101,46 @@ export async function initializeScene(
   gl: WebGL2RenderingContext,
   sceneOptions: WebGLSceneOptionsType
 ) {
-
-    
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL);
 
-  console.log(" ModelRenderer: sceneOptions (в initialize) =", sceneOptions);
-
-
   try {
-    // === Загружаем модель и текстуру ===
-    const result = await loadGLB("/models/witch_cauldron.glb");
-    const { model, textureData, mimeType } = result;
+    const model = await loadGLB("/models/carrot.glb");
 
-    console.log("✅ Модель загружена, текстура:", !!textureData);
-
-    // === Создаём шейдеры ===
     const program = createShaderProgram(gl, vsSourceModel, fsSourceModel);
 
-    // === Буферы ===
-    const buffers = setupModelBuffers(gl, model);
-
-    // === Матрица ===
     const modelMatrix = mat4.create();
     mat4.translate(modelMatrix, modelMatrix, [0, 0, 0]);
     mat4.scale(modelMatrix, modelMatrix, [1, 1, 1]);
 
-    // === Текстура ===
-let texture: WebGLTexture;
-if (textureData) {
-  texture = await createTextureFromData(gl, textureData, mimeType);
-} else {
-  texture = createPlaceholderTexture(gl, 255, 0, 255);
-}
+    const parts: RenderModelPart[] = [];
 
+    for (const part of model.parts) {
+      const buffers = setupModelPartBuffers(gl, part);
+      const texture = part.textureData
+        ? await createTextureFromData(gl, part.textureData, part.mimeType)
+        : createPlaceholderTexture(gl, 255, 0, 255);
 
-// === Сохраняем ===
-if (!sceneOptions.modelData) {
-  sceneOptions.modelData = {};
-}
+      parts.push({ buffers, texture });
+    }
 
-sceneOptions.modelData.carrot = {
-  program,
-  buffers,
-  modelMatrix,
-  texture,
-};
+    globalCarrot = {
+      parts,
+      program,
+      modelMatrix,
+    };
 
-// === Устанавливаем глобальную переменную ДО ready ===
-globalCarrot = {
-  program,
-  buffers,
-  modelMatrix,
-  texture,
-};
+    sceneOptions.ready = true;
 
-// === Только теперь — сцена готова ===
-sceneOptions.ready = true;
+    const canvas = gl.canvas as HTMLCanvasElement;
+    canvas.dispatchEvent(new CustomEvent("sceneready"));
 
-const canvas = gl.canvas as HTMLCanvasElement;
-canvas.dispatchEvent(new CustomEvent("sceneready"));
-
-console.log(" ModelRenderer: globalCarrot установлен");
-
-
+    console.log(" ModelRenderer: модель и текстуры загружены, globalCarrot установлен");
   } catch (e) {
     console.error("Ошибка инициализации:", e);
   }
 }
+
 
 function createTextureFromData(
   gl: WebGL2RenderingContext,
@@ -179,18 +165,19 @@ function createTextureFromData(
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 
       URL.revokeObjectURL(url);
-      resolve(texture); // ← только после загрузки
+      resolve(texture);
     };
 
     image.onerror = () => {
       console.error("Failed to load texture image");
       URL.revokeObjectURL(url);
-      resolve(createPlaceholderTexture(gl, 255, 0, 255)); // fallback
+      resolve(createPlaceholderTexture(gl, 255, 0, 255));
     };
 
     image.src = url;
   });
 }
+
 
 
 function createPlaceholderTexture(
@@ -214,33 +201,12 @@ export function renderScene(
   gl: WebGL2RenderingContext,
   sceneOptions: WebGLSceneOptionsType
 ) {
-    console.log(" ModelRenderer: sceneOptions (в render) =", sceneOptions);
-    console.log(" ModelRenderer: sceneOptions.modelData =", sceneOptions.modelData);
-
-  if (!sceneOptions.ready) {
-    console.warn(" ModelRenderer: sceneOptions.ready = false");
+  if (!sceneOptions.ready || !globalCarrot) {
     return;
   }
 
-  if (!sceneOptions.modelData) {
-    console.warn(" ModelRenderer: sceneOptions.modelData отсутствует");
-    return;
-  }
+  const { program, parts, modelMatrix } = globalCarrot;
 
-  if (!sceneOptions.modelData?.carrot) {
-    console.warn(" ModelRenderer: modelData.carrot отсутствует");
-    return;
-  }
-
-if (!globalCarrot) {
-  console.warn(" ModelRenderer: globalCarrot ещё не установлен");
-  return;
-}
-
-const { program, buffers, modelMatrix, texture } = globalCarrot;
-
-
-  // --- Матрицы ---
   const projectionMatrix = mat4.create();
   const viewMatrix = mat4.create();
   const modelViewMatrix = mat4.create();
@@ -248,51 +214,55 @@ const { program, buffers, modelMatrix, texture } = globalCarrot;
 
   const aspect = gl.canvas.width / gl.canvas.height;
   mat4.perspective(projectionMatrix, (45 * Math.PI) / 180, aspect, 0.1, 100);
-  mat4.lookAt(viewMatrix, [0, 5, 10], [0, 1, 0], [0, 1, 0]);
+  mat4.lookAt(viewMatrix, [5, 3, 45], [0, 0, 0], [0, 1, 0]);
   mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
   mat3.normalFromMat4(normalMatrix, modelViewMatrix);
 
-  // --- Рендер ---
   gl.clearColor(0.1, 0.1, 0.1, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   gl.useProgram(program);
 
-  // === Атрибуты ===
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.vertex);
-  const posLoc = gl.getAttribLocation(program, "aPosition");
-  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(posLoc);
-
-  if (buffers.normal) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
-    const normLoc = gl.getAttribLocation(program, "aNormal");
-    gl.vertexAttribPointer(normLoc, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(normLoc);
-  }
-
-  if (buffers.texCoord) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.texCoord);
-    const texCoordLoc = gl.getAttribLocation(program, "aTexCoord");
-    gl.vertexAttribPointer(texCoordLoc, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(texCoordLoc);
-  }
-
-  // === Uniform'ы ===
+  // === Общие uniform'ы, не зависящие от части ===
   gl.uniformMatrix4fv(gl.getUniformLocation(program, "uProjectionMatrix"), false, projectionMatrix);
   gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, modelViewMatrix);
   gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, normalMatrix);
   gl.uniform3fv(gl.getUniformLocation(program, "uLightColor"), [1.0, 0.9, 0.7]);
 
-  // === Текстура ===
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.uniform1i(gl.getUniformLocation(program, "uSampler"), 0);
+  for (const part of parts) {
+    const { buffers, texture } = part;
 
-  // === Рисуем ===
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
-  gl.drawElements(gl.TRIANGLES, buffers.count, buffers.indexType, 0);
+    // === Атрибуты ===
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.vertex);
+    const posLoc = gl.getAttribLocation(program, "aPosition");
+    gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(posLoc);
+
+    if (buffers.normal) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+      const normLoc = gl.getAttribLocation(program, "aNormal");
+      gl.vertexAttribPointer(normLoc, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(normLoc);
+    }
+
+    if (buffers.texCoord) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.texCoord);
+      const texCoordLoc = gl.getAttribLocation(program, "aTexCoord");
+      gl.vertexAttribPointer(texCoordLoc, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(texCoordLoc);
+    }
+
+    // === Текстура ===
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(gl.getUniformLocation(program, "uSampler"), 0);
+
+    // === Рисуем эту часть ===
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
+    gl.drawElements(gl.TRIANGLES, buffers.count, buffers.indexType, 0);
+  }
 }
+
 
 
 
@@ -318,49 +288,46 @@ export function disposeScene(gl: WebGL2RenderingContext) {
 
 // kr-src.ts
 
-export function setupModelBuffers(
+export function setupModelPartBuffers(
   gl: WebGL2RenderingContext,
-  model: GLTFModel
-): RenderModelType["buffers"] {
-  // === Вершины ===
+  part: GLTFModelPart
+): RenderModelPartBuffers {
   const vertexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(model.vertices), gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(part.vertices), gl.STATIC_DRAW);
 
-  // === Нормали ===
   const normalBuffer = gl.createBuffer();
   let normalBufferData: WebGLBuffer | null = null;
-  if (model.normals.length > 0) {
+  if (part.normals.length > 0) {
     gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(model.normals), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(part.normals), gl.STATIC_DRAW);
     normalBufferData = normalBuffer;
   }
 
-  // === UV ===
   const texCoordBuffer = gl.createBuffer();
   let texCoordBufferData: WebGLBuffer | null = null;
-  if (model.texCoords.length > 0) {
+  if (part.texCoords.length > 0) {
     gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(model.texCoords), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(part.texCoords), gl.STATIC_DRAW);
     texCoordBufferData = texCoordBuffer;
   }
 
-  // === Индексы ===
   const indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
-  const IndexArrayType = model.indices.every(i => i < 65536) ? Uint16Array : Uint32Array;
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new IndexArrayType(model.indices), gl.STATIC_DRAW);
+  const IndexArrayType = part.indices.every(i => i < 65536) ? Uint16Array : Uint32Array;
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new IndexArrayType(part.indices), gl.STATIC_DRAW);
 
   return {
     vertex: vertexBuffer,
     normal: normalBufferData,
     texCoord: texCoordBufferData,
     index: indexBuffer,
-    count: model.indices.length,
+    count: part.indices.length,
     indexType: IndexArrayType === Uint16Array ? gl.UNSIGNED_SHORT : gl.UNSIGNED_INT,
   };
 }
+
 
 
 
@@ -429,11 +396,7 @@ export function updateBubbles(deltaTime: number) {
 
 // kr-src.ts
 
-export async function loadGLB(url: string): Promise<{
-  model: GLTFModel;
-  textureData: ArrayBuffer | null;
-  mimeType: string;
-}> {
+export async function loadGLB(url: string): Promise<GLTFModel> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Не удалось загрузить GLB: ${url}`);
 
@@ -445,7 +408,6 @@ export async function loadGLB(url: string): Promise<{
   // === Проверка заголовка ===
   const magic = readUint32(dataView, offset, true); offset += 4;
   if (magic !== 0x46546C67) throw new Error("Неверный формат: не GLB");
-
   const version = readUint32(dataView, offset, true); offset += 4;
   if (version !== 2) throw new Error("Поддерживается только GLB версии 2");
   offset += 4; // length
@@ -459,10 +421,10 @@ export async function loadGLB(url: string): Promise<{
     const chunkType = readUint32(dataView, offset, true); offset += 4;
     const chunkEnd = offset + chunkLength;
 
-    if (chunkType === 0x4E4F534A) { // JSON
+    if (chunkType === 0x4E4F534A) {
       const jsonBytes = new Uint8Array(arrayBuffer, offset, chunkLength);
       jsonChunk = new TextDecoder().decode(jsonBytes);
-    } else if (chunkType === 0x004E4942) { // BIN
+    } else if (chunkType === 0x004E4942) {
       binChunkData = arrayBuffer.slice(offset, chunkEnd);
     }
 
@@ -476,13 +438,11 @@ export async function loadGLB(url: string): Promise<{
   const json = JSON.parse(jsonChunk);
   const bufferViews = json.bufferViews || [];
   const accessors = json.accessors || [];
+  const images = json.images || [];
+  const textures = json.textures || [];
+  const materials = json.materials || [];
 
-  // === Сбор данных модели ===
-  const allVertices: number[] = [];
-  const allNormals: number[] = [];
-  const allTexCoords: number[] = [];
-  const allIndices: number[] = [];
-  let vertexOffset = 0;
+  const parts: GLTFModelPart[] = [];
 
   for (const mesh of json.meshes || []) {
     for (const prim of mesh.primitives || []) {
@@ -492,68 +452,71 @@ export async function loadGLB(url: string): Promise<{
       const posAccessor = accessors[posAccessorIdx];
       const { array: posArray } = getAccessorData(dataView, posAccessor, bufferViews, binChunkData);
       const positions = Array.from(posArray);
-      allVertices.push(...positions);
 
-      // Нормали
-      let normals: number[] = [];
-      if (prim.attributes.NORMAL !== undefined) {
-        const normAccessor = accessors[prim.attributes.NORMAL];
-        const { array: normArray } = getAccessorData(dataView, normAccessor, bufferViews, binChunkData);
-        normals = Array.from(normArray);
-      } else {
-        normals = new Array(positions.length).fill(0);
-      }
-      allNormals.push(...normals);
+      const normals: number[] = prim.attributes.NORMAL !== undefined
+        ? Array.from(getAccessorData(dataView, accessors[prim.attributes.NORMAL], bufferViews, binChunkData).array)
+        : new Array(positions.length).fill(0);
 
-      // UV
-      let texCoords: number[] = [];
-      if (prim.attributes.TEXCOORD_0 !== undefined) {
-        const uvAccessor = accessors[prim.attributes.TEXCOORD_0];
-        const { array: uvArray } = getAccessorData(dataView, uvAccessor, bufferViews, binChunkData);
-        texCoords = Array.from(uvArray);
-      } else {
-        texCoords = new Array(positions.length / 3 * 2).fill(0);
-      }
-      allTexCoords.push(...texCoords);
+      const texCoords: number[] = prim.attributes.TEXCOORD_0 !== undefined
+        ? Array.from(getAccessorData(dataView, accessors[prim.attributes.TEXCOORD_0], bufferViews, binChunkData).array)
+        : new Array(positions.length / 3 * 2).fill(0);
 
-      // Индексы
-      if (prim.indices !== undefined) {
-        const indAccessor = accessors[prim.indices];
-        const { array: indArray } = getAccessorData(dataView, indAccessor, bufferViews, binChunkData);
-        const indices = Array.from(indArray).map(i => i + vertexOffset);
-        allIndices.push(...indices);
-      }
+      const indices: number[] = prim.indices !== undefined
+        ? Array.from(getAccessorData(dataView, accessors[prim.indices], bufferViews, binChunkData).array)
+        : [];
 
-      vertexOffset += posArray.length / 3;
-    }
-  }
+      // === Извлечение текстуры по material ===
+let textureData: ArrayBuffer | null = null;
+let mimeType = "image/png";
 
-  // === Извлечение текстуры (если есть) ===
-  let textureData: ArrayBuffer | null = null;
-  let mimeType = "image/png";
+if (prim.material !== undefined) {
+  const material = materials[prim.material];
+  console.log("Material:", material);
 
-  if (json.textures && json.textures.length > 0) {
-    const textureInfo = json.textures[0];
-    const image = json.images[textureInfo.source];
-    if (image.bufferView !== undefined) {
-      const bufferView = bufferViews[image.bufferView];
+  if (material?.pbrMetallicRoughness?.baseColorTexture) {
+    const textureInfo = material.pbrMetallicRoughness.baseColorTexture;
+    console.log("Найдена baseColorTexture:", textureInfo);
+
+    const texture = textures[textureInfo.index];
+    console.log("Texture:", texture);
+
+    const source = images[texture.source];
+    console.log("Image source:", source);
+
+    if (source.bufferView !== undefined) {
+      console.log("✅ bufferView найден — текстура embedded");
+      const bufferView = bufferViews[source.bufferView];
       const byteOffset = bufferView.byteOffset || 0;
       textureData = binChunkData.slice(byteOffset, byteOffset + bufferView.byteLength);
-      mimeType = image.mimeType || "image/png";
+      mimeType = source.mimeType || "image/png";
+    } else if (source.uri) {
+      console.log("❌ bufferView нет, но есть URI:", source.uri);
+      // Текстура внешняя!
+    } else {
+      console.log("⚠️ Нет ни bufferView, ни uri");
+    }
+  } else {
+    console.log("⚠️ Материал не использует текстуру (использует baseColorFactor?)");
+  }
+} else {
+  console.log("⚠️ У примитива нет material");
+}
+
+
+      parts.push({
+        vertices: positions,
+        normals,
+        texCoords,
+        indices,
+        textureData,
+        mimeType,
+      });
     }
   }
 
-  return {
-    model: {
-      vertices: allVertices,
-      normals: allNormals,
-      texCoords: allTexCoords,
-      indices: allIndices,
-    },
-    textureData,
-    mimeType,
-  };
+  return { parts };
 }
+
 
 
 // === Вспомогательные функции ===
