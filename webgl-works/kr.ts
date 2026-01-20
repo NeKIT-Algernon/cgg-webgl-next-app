@@ -16,7 +16,7 @@ import {
 
 // === Глобальные переменные ===
 
-const carrotBottom = -0.1;
+const carrotBottom = 0.2;
 
 
 // === Глобальные переменные ===
@@ -30,7 +30,9 @@ let carrotState: CarrotState = {
   y: 1.5,
   falling: false,
   speedY: 0,
+  visible: true, // ← по умолчанию видна
 };
+
 
 // === Система пузырьков ===
 type Bubble = {
@@ -166,6 +168,7 @@ export const KR: WorkType = {
       bubblesActive = false;
       bubblesStarted = false; // 🔁 сбрасываем
 
+      carrotState.visible = true;
 
 
       sceneOptions.changed = sceneOptions.changed === 1 ? 0 : 1;
@@ -222,9 +225,16 @@ export const KR: WorkType = {
     }
 
     // Ограничения
-    const bounds = 3;
-    carrotState.x = Math.max(-bounds, Math.min(bounds, carrotState.x));
-    carrotState.z = Math.max(-bounds, Math.min(bounds, carrotState.z));
+    // Круговая область
+    const maxRadius = 2.5;
+    const distanceSq = carrotState.x * carrotState.x + carrotState.z * carrotState.z;
+    if (distanceSq > maxRadius * maxRadius) {
+      // Скорректировать позицию — оставить на границе круга
+      const distance = Math.sqrt(distanceSq);
+      carrotState.x = (carrotState.x / distance) * maxRadius;
+      carrotState.z = (carrotState.z / distance) * maxRadius;
+    }
+
 
     // --- Запуск падения ---
     if (event.code === "Space" && !carrotState.falling && carrotState.y > carrotBottom) {
@@ -238,13 +248,13 @@ export const KR: WorkType = {
 
     switch (event.code) {
       case "ArrowUp": {
-        const move = vec3.scale(vec3.create(), forward, speed);
+        const move = vec3.scale(vec3.create(), forward, speed*3);
         carrotState.x += move[0];
         carrotState.z += move[2];
         break;
       }
       case "ArrowDown": {
-        const move = vec3.scale(vec3.create(), forward, -speed);
+        const move = vec3.scale(vec3.create(), forward, -speed*3);
         carrotState.x += move[0];
         carrotState.z += move[2];
         break;
@@ -416,7 +426,7 @@ export const KR: WorkType = {
       !bubblesStarted
     ) {
       // Проверка попадания
-      if (Math.hypot(carrotState.x, carrotState.z) < 0.5) {
+      if (Math.hypot(carrotState.x, carrotState.z) < 0.6) {
         // Успешное попадание
         bubblesActive = true;
         bubblesStarted = true;
@@ -449,6 +459,7 @@ export const KR: WorkType = {
       if (t >= 1) {
         carrotState.y = targetY;
         carrotState.falling = false;
+        carrotState.visible = false;
       }
     }
     // === Обновляем модель морковки ===
@@ -456,12 +467,15 @@ export const KR: WorkType = {
     mat4.translate(carrotData.modelMatrix, carrotData.modelMatrix, [carrotState.x, carrotState.y, carrotState.z]);
     mat4.scale(carrotData.modelMatrix, carrotData.modelMatrix, [0.02, 0.02, 0.02]);
 
-    // === Рендер морковки ===
-    mat4.multiply(modelViewMatrix, viewMatrix, carrotData.modelMatrix);
-    mat3.normalFromMat4(normalMatrix, modelViewMatrix);
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, modelViewMatrix);
-    gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, normalMatrix);
-    renderModelParts(gl, program, carrotData.parts);
+    // === Рендер морковки (если видна) ===
+    if (carrotState.visible) {
+      mat4.multiply(modelViewMatrix, viewMatrix, carrotData.modelMatrix);
+      mat3.normalFromMat4(normalMatrix, modelViewMatrix);
+      gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, modelViewMatrix);
+      gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, normalMatrix);
+      renderModelParts(gl, program, carrotData.parts);
+    }
+
   },
 
 

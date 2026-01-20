@@ -21,7 +21,9 @@ export type CarrotState = {
   falling: boolean;
   speedY: number;
   startTime?: number;
+  visible: boolean; 
 };
+
 
 export type GLTFModel = {
   parts: GLTFModelPart[];
@@ -48,14 +50,6 @@ export type RenderModelType = {
   parts: RenderModelPart[];
   program: WebGLProgram;
   modelMatrix: mat4;
-};
-
-let carrotState: CarrotState = {
-  x: 0,
-  z: 0,
-  y: 1.5, // начальная высота над котлом
-  falling: false,
-  speedY: 0,
 };
 
 let globalCarrot: RenderModelType | null = null;
