@@ -48,12 +48,12 @@ function GLCanvas({ activeWork, sceneOptions, setSceneOptions }: UseWorksType) {
 
     // Если это PR6 — передаём time
     const currentTime = Date.now() * 0.001;
-    const sceneOptionsToRender = work.id === "6"
+    const sceneOptionsToRender = ((work.id === "6") || (work.id === "kr"))
       ? { ...sceneOptionsRef.current, time: currentTime }
       : sceneOptionsRef.current;
 
     work.render(gl, sceneOptionsToRender);
-  }, []); // ✅ Остаётся стабильной
+  }, []);
 
   // Обработчик клавиш
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -106,7 +106,7 @@ useEffect(() => {
     }
 
     // Запускаем анимацию только для PR6
-    if (workRef.current?.id === "6") {
+    if (workRef.current?.id === "6" || workRef.current?.id === "kr") {
       const animate = () => {
         renderScene();
         animationIdRef.current = requestAnimationFrame(animate);
@@ -135,7 +135,7 @@ useEffect(() => {
 
   // === Отдельный эффект — вызов рендера при изменении sceneOptions или activeWork ===
   useEffect(() => {
-    if (isInitializedRef.current && workRef.current?.id !== "6") {
+    if (isInitializedRef.current && ((workRef.current?.id !== "6") && (workRef.current?.id !== "kr"))) {
       // Для всех работ, кроме PR6, просто рендерим при изменении опций
       renderScene();
     }

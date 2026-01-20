@@ -71,7 +71,7 @@ interface WebGLSceneOptionsType {
   angle: number,
   changed?: number,
   ready?: boolean,
-
+  time?: number,
   modelData?: {
     carrot?: RenderModelType,
     cauldron?: RenderModelType,
