@@ -408,7 +408,6 @@ export async function loadGLB(url: string): Promise<GLTFModel> {
 
       if (prim.material !== undefined) {
         const material = materials[prim.material];
-        console.log("Material:", material);
 
         // === Попробуем baseColorTexture (стандартный PBR) ===
         if (material?.pbrMetallicRoughness?.baseColorTexture) {
@@ -457,13 +456,10 @@ export async function loadGLB(url: string): Promise<GLTFModel> {
         if (textureData === null) {
           if (material.extensions?.KHR_materials_pbrSpecularGlossiness) {
             color = material.extensions.KHR_materials_pbrSpecularGlossiness.diffuseFactor || [1.0, 1.0, 1.0, 1.0];
-            console.log("✅ Цвет из diffuseFactor:", color);
           } else {
             color = material?.pbrMetallicRoughness?.baseColorFactor || [1.0, 1.0, 1.0, 1.0];
-            console.log("✅ Цвет из baseColorFactor:", color);
           }
         } else {
-          console.log("✅ Текстура найдена, цвет игнорируется");
         }
       }
 
