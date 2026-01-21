@@ -1,6 +1,6 @@
 //import { Dispatch, SetStateAction } from 'react';
 
-import { RenderModelType } from "@/webgl-works/kr-src";
+import { RenderModelType } from "@/types/KRtypes";
 import { mat4 } from "gl-matrix";
 
 

@@ -1,6 +1,9 @@
 // webgl-works/kr.ts
-import { mat4, mat3, vec3 } from "gl-matrix";
-import { WebGLSceneOptionsType, WorkType } from "@/types/webGLWork";
+import {
+  mat4,
+  mat3,
+  vec3,
+} from "gl-matrix";
 import {
   vsSourceModel,
   fsSourceModel,
@@ -9,55 +12,62 @@ import {
   createModelParts,
   renderModelParts,
   loadGLB,
+  createSkySphere,
+  createTextureFromData,
+} from "./kr-src";
+import {
+  WebGLSceneOptionsType,
+  WorkType,
+} from "@/types/webGLWork";
+import {
   RenderModelPart,
   RenderModelType,
   CarrotState,
-  createSkySphere,
-  createTextureFromData
-} from "./kr-src";
+} from "@/types/KRtypes"
 
-// === Глобальные переменные ===
-
-let cameraTargetOffset = [0, 0]; // [x, y] смещение центра вращения
-
+// === Константы ===
 const DEFAULT_CAMERA_THETA = 45;
 const DEFAULT_CAMERA_PHI = 60;
 const DEFAULT_CAMERA_RADIUS = 8;
-const DEFAULT_TARGET_OFFSET = [0, 0] as [number, number];
+const DEFAULT_TARGET_OFFSET: [number, number] = [0, 0];
+const MAX_BUBBLES = 20;
+const BUBBLE_SPAWN_RATE = 0.2; // вероятность за кадр
+const BREW_DURATION = 5.0;      // время кипения (сек)
+const COFFEE_FLY_DURATION = 2.0; // время подъёма (сек)
+const ORBIT_SPEED = 1;
 
+// === Глобальные состояния ===
+
+// Камера
+let cameraTheta = DEFAULT_CAMERA_THETA;
+let cameraPhi = DEFAULT_CAMERA_PHI;
+let cameraRadius = DEFAULT_CAMERA_RADIUS;
+let cameraTargetOffset: [number, number] = [0, 0]; // [x, y] смещение центра вращения
+
+// Анимации
 let orbitOffsetX = 0;
 let orbitOffsetZ = 0;
-const orbitSpeed = 1;
 
-
-let coffeeState: { visible: boolean; y: number } = {
-  visible: false,
-  y: -0.5,
-};
-let coffeeStartTime: number | null = null;
-
-
-const carrotBottom = 0.2;
-
-let skySphere: RenderModelType | null = null;
-let skyTexture: WebGLTexture | null = null;
-
-// === Глобальные переменные ===
-let cameraTheta = 45;
-let cameraPhi = 60;
-let cameraRadius = 8;
-
+// Морковка
 let carrotState: CarrotState = {
   x: 0,
   z: 0,
   y: 2,
   falling: false,
   speedY: 0,
-  visible: true, // ← по умолчанию видна
+  visible: true,
 };
 
+const carrotBottom = 0.2; // y-позиция дна
 
-// === Система пузырьков ===
+// Кофе
+let coffeeState: { visible: boolean; y: number } = {
+  visible: false,
+  y: -0.5,
+};
+let coffeeStartTime: number | null = null;
+
+// Пузырьки
 type Bubble = {
   x: number;
   y: number;
@@ -70,14 +80,10 @@ type Bubble = {
 };
 
 let bubbles: Bubble[] = [];
-let bubblesActive = false; // активна ли анимация
-let bubblesStarted = false; // 🔁 флаг: уже запускали?
+let bubblesActive = false;
+let bubblesStarted = false;
 
-
-let isAnimating = false;
-let animationFrameId: number | null = null;
-
-let globalCarrot: RenderModelType | null = null;
+// === Модели ===
 let modelData: {
   carrot: RenderModelType;
   cauldron: RenderModelType;
@@ -85,45 +91,41 @@ let modelData: {
   coffee: RenderModelType;
 } | null = null;
 
+let skySphere: RenderModelType | null = null;
+let skyTexture: WebGLTexture | null = null;
 
+// === Работа с пузырьками ===
 function spawnBubble() {
   if (bubbles.length >= MAX_BUBBLES) return;
 
-  // Случайная позиция внутри котла (примерные границы)
   const radius = 0.4;
   const angle = Math.random() * Math.PI * 2;
   const distance = Math.random() * radius;
   const x = -0.5 + Math.cos(angle) * distance;
-  const z = 0 + Math.sin(angle) * distance;
+  const z = Math.sin(angle) * distance;
 
   bubbles.push({
     x,
-    y: 3, // старт снизу котла
+    y: 3,
     z,
-    speed: 0.02 + Math.random() * 0.03, // разная скорость
-    size: 0.01 + Math.random() * 0.02, // разный размер
+    speed: 0.02 + Math.random() * 0.03,
+    size: 0.01 + Math.random() * 0.02,
     sway: 0.01 + Math.random() * 0.02,
     swaySpeed: 0.5 + Math.random() * 1,
     swayOffset: Math.random() * Math.PI * 2,
   });
 }
 
-
 function updateBubbles(time: number) {
-  // Генерация новых пузырьков
-  if (Math.random() < 0.2) { // ~20% шанс за кадр
+  if (Math.random() < BUBBLE_SPAWN_RATE) {
     spawnBubble();
   }
 
-  // Обновляем позиции
   for (let i = bubbles.length - 1; i >= 0; i--) {
     const b = bubbles[i];
     b.y += b.speed;
-
-    // Боковое покачивание
     b.x += Math.sin(time * b.swaySpeed + b.swayOffset) * b.sway * 0.01;
 
-    // Удаляем, если улетели
     if (b.y > 4) {
       bubbles.splice(i, 1);
     }
@@ -138,9 +140,7 @@ function renderBubbles(
   normalMatrix: mat3
 ) {
   if (!modelData?.bubble) return;
-
-  const { parts: bubbleParts } = modelData.bubble; // ← [singleBubblePart]
-  const part = bubbleParts[0]; // ← только один
+  const bubblePart = modelData.bubble.parts[0];
 
   for (const bubble of bubbles) {
     const modelMatrix = mat4.create();
@@ -158,171 +158,129 @@ function renderBubbles(
     gl.uniform4fv(gl.getUniformLocation(program, "uBaseColor"), [0.7, 0.9, 1.0, 0.6]);
     gl.uniform1i(gl.getUniformLocation(program, "uUseTexture"), 0);
 
-    // Рисуем ТОЛЬКО ОДИН пузырь
-    renderModelParts(gl, program, [part]); // ← массив из одного part
+    renderModelParts(gl, program, [bubblePart]);
   }
 }
 
-
-// === Константы ===
-const MAX_BUBBLES = 20;
-
+// === Основной объект работы ===
 export const KR: WorkType = {
   id: "kr",
   name: "Курсовая",
   controls: [
-    "Стрелки ←→↑↓ — движение морковки (относительно камеры)",
-    "Пробел — погрузить морковку в котёл",
-    "R — сбросить сцену",
     "W/A/S/D — вращение камеры",
+    "T / G - наклон камеры",
     "+/- — приближение/отдаление",
+    "E - базовые настройки камеры",
+    "Стрелки ←→↑↓ — движение морковки",
+    "Пробел — погрузить морковку",
+    "R — сбросить сцену",
   ],
 
-
   keyHandler: (event: KeyboardEvent, sceneOptions: WebGLSceneOptionsType) => {
-    // --- Сброс сцены ---
-    if (event.code === "KeyR") {
-      carrotState.x = 0;
-      carrotState.z = 0;
-      carrotState.y = 1.5;
-      carrotState.falling = false;
-      carrotState.speedY = 0;
+  // --- Сброс сцены (имеет наивысший приоритет) ---
+  if (event.code === "KeyR") {
+    cameraTheta = DEFAULT_CAMERA_THETA;
+    cameraPhi = DEFAULT_CAMERA_PHI;
+    cameraRadius = DEFAULT_CAMERA_RADIUS;
+    cameraTargetOffset = [0, 0];
 
-      // При нажатии R
-      bubbles = [];
-      bubblesActive = false;
-      bubblesStarted = false; // 🔁 сбрасываем
-
-      cameraTargetOffset = [0, 0];
-
-
-      coffeeState.visible = false;
-      coffeeState.y = -0.5;
-      coffeeStartTime = null;
-
-
-      carrotState.visible = true;
-
-
-      sceneOptions.changed = sceneOptions.changed === 1 ? 0 : 1;
-      return;
-    }
-
-    // === Пересчитываем векторы камеры ===
-    const thetaRad = (cameraTheta * Math.PI) / 180;
-    const phiRad = (cameraPhi * Math.PI) / 180;
-
-    const camX = cameraRadius * Math.sin(phiRad) * Math.cos(thetaRad);
-    const camZ = cameraRadius * Math.sin(phiRad) * Math.sin(thetaRad);
-    const camY = cameraRadius * Math.cos(phiRad);
-
-    const eye = vec3.fromValues(camX, camY, camZ);
-    const center = vec3.fromValues(0, 0, 0);
-    const up = vec3.fromValues(0, 1, 0);
-
-    const forward = vec3.normalize(vec3.create(), vec3.subtract(vec3.create(), center, eye));
-    const right = vec3.normalize(vec3.create(), vec3.cross(vec3.create(), forward, up));
-
-    const speed = 0.1;
-
-    // === Управление камерой — как раньше ===
-    const camSpeed = 5;
-    switch (event.code) {
-      case "KeyE":
-        cameraTheta = DEFAULT_CAMERA_THETA;
-        cameraPhi = DEFAULT_CAMERA_PHI;
-        cameraRadius = DEFAULT_CAMERA_RADIUS;
-        cameraTargetOffset[0] = DEFAULT_TARGET_OFFSET[0];
-        cameraTargetOffset[1] = DEFAULT_TARGET_OFFSET[1];
-        sceneOptions.changed = sceneOptions.changed === 1 ? 0 : 1;
-        break;
-
-      case "KeyG": // Камера вверх → сцена "двигается вниз"
-        cameraTargetOffset[1] = Math.max(cameraTargetOffset[1] - 0.2, -2);
-        break;
-      case "KeyT": // Камера вниз → сцена "двигается вверх"
-        cameraTargetOffset[1] = Math.min(cameraTargetOffset[1] + 0.2, 2);
-        break;
-
-
-      case "KeyW":
-        cameraPhi = Math.max(10, cameraPhi - camSpeed);
-        break;
-      case "KeyS":
-        cameraPhi = Math.min(170, cameraPhi + camSpeed);
-        break;
-      case "KeyA":
-        cameraTheta -= camSpeed;
-        break;
-      case "KeyD":
-        cameraTheta += camSpeed;
-        break;
-      case "NumpadAdd":
-      case "Equal":
-        cameraRadius = Math.max(3, cameraRadius - 0.2);
-        break;
-      case "NumpadSubtract":
-      case "Minus":
-        cameraRadius = Math.min(15, cameraRadius + 0.2);
-        break;
-    }
+    carrotState = { x: 0, z: 0, y: 2, falling: false, speedY: 0, visible: true };
+    coffeeState = { visible: false, y: -0.5 };
+    coffeeStartTime = null;
+    bubbles = [];
+    bubblesActive = false;
+    bubblesStarted = false;
 
     sceneOptions.changed = sceneOptions.changed === 1 ? 0 : 1;
+    return;
+  }
 
-    // --- Блокировка управления после падения ---
-    if (carrotState.y <= carrotBottom) {
-      return; // только R работает
-    }
-
-    // Ограничения
-    // Круговая область
-    const maxRadius = 2.5;
-    const distanceSq = carrotState.x * carrotState.x + carrotState.z * carrotState.z;
-    if (distanceSq > maxRadius * maxRadius) {
-      // Скорректировать позицию — оставить на границе круга
-      const distance = Math.sqrt(distanceSq);
-      carrotState.x = (carrotState.x / distance) * maxRadius;
-      carrotState.z = (carrotState.z / distance) * maxRadius;
-    }
-
-
-    // --- Запуск падения ---
-    if (event.code === "Space" && !carrotState.falling && carrotState.y > carrotBottom) {
-      carrotState.falling = true;
-
-      carrotState.startTime = Date.now() * 0.001;; // сохраняем время начала падения
-
+  // --- Управление камерой ---
+  switch (event.code) {
+    case "KeyE":
+      cameraTheta = DEFAULT_CAMERA_THETA;
+      cameraPhi = DEFAULT_CAMERA_PHI;
+      cameraRadius = DEFAULT_CAMERA_RADIUS;
+      cameraTargetOffset[0] = DEFAULT_TARGET_OFFSET[0];
+      cameraTargetOffset[1] = DEFAULT_TARGET_OFFSET[1];
       sceneOptions.changed = sceneOptions.changed === 1 ? 0 : 1;
       return;
-    }
+    case "KeyW": cameraPhi = Math.max(10, cameraPhi - 5); break;
+    case "KeyS": cameraPhi = Math.min(170, cameraPhi + 5); break;
+    case "KeyA": cameraTheta -= 5; break;
+    case "KeyD": cameraTheta += 5; break;
+    case "NumpadAdd":
+    case "Equal": cameraRadius = Math.max(3, cameraRadius - 0.2); break;
+    case "NumpadSubtract":
+    case "Minus": cameraRadius = Math.min(15, cameraRadius + 0.2); break;
+    case "KeyT": cameraTargetOffset[1] = Math.min(cameraTargetOffset[1] + 0.2, 2); break;
+    case "KeyG": cameraTargetOffset[1] = Math.max(cameraTargetOffset[1] - 0.2, -2); break;
+  }
 
-    switch (event.code) {
-      case "ArrowUp": {
-        const move = vec3.scale(vec3.create(), forward, speed * 3);
-        carrotState.x += move[0];
-        carrotState.z += move[2];
-        break;
-      }
-      case "ArrowDown": {
-        const move = vec3.scale(vec3.create(), forward, -speed * 3);
-        carrotState.x += move[0];
-        carrotState.z += move[2];
-        break;
-      }
-      case "ArrowLeft": {
-        const move = vec3.scale(vec3.create(), right, -speed);
-        carrotState.x += move[0];
-        carrotState.z += move[2];
-        break;
-      }
-      case "ArrowRight": {
-        const move = vec3.scale(vec3.create(), right, speed);
-        carrotState.x += move[0];
-        carrotState.z += move[2];
-        break;
-      }
+  // --- Управление морковкой (только если она ещё падает) ---
+  if (carrotState.y <= carrotBottom) {
+    sceneOptions.changed = sceneOptions.changed === 1 ? 0 : 1;
+    return;
+  }
+
+  // Запуск падения
+  if (event.code === "Space" && !carrotState.falling) {
+    carrotState.falling = true;
+    carrotState.startTime = Date.now() * 0.001;
+    sceneOptions.changed = sceneOptions.changed === 1 ? 0 : 1;
+    return;
+  }
+
+  // Движение морковки (относительно камеры)
+  const thetaRad = (cameraTheta * Math.PI) / 180;
+  const phiRad = (cameraPhi * Math.PI) / 180;
+  const camX = cameraRadius * Math.sin(phiRad) * Math.cos(thetaRad);
+  const camZ = cameraRadius * Math.sin(phiRad) * Math.sin(thetaRad);
+  const eye = vec3.fromValues(camX, 0, camZ);
+  const center = vec3.fromValues(0, 0, 0);
+  const forward = vec3.normalize(vec3.create(), vec3.subtract(vec3.create(), center, eye));
+  const right = vec3.normalize(vec3.create(), vec3.cross(vec3.create(), forward, [0, 1, 0]));
+  const speed = 0.1;
+
+  switch (event.code) {
+    case "ArrowUp": {
+      const move = vec3.scale(vec3.create(), forward, speed * 3);
+      carrotState.x += move[0];
+      carrotState.z += move[2];
+      break;
     }
-  },
+    case "ArrowDown": {
+      const move = vec3.scale(vec3.create(), forward, -speed * 3);
+      carrotState.x += move[0];
+      carrotState.z += move[2];
+      break;
+    }
+    case "ArrowLeft": {
+      const move = vec3.scale(vec3.create(), right, -speed);
+      carrotState.x += move[0];
+      carrotState.z += move[2];
+      break;
+    }
+    case "ArrowRight": {
+      const move = vec3.scale(vec3.create(), right, speed);
+      carrotState.x += move[0];
+      carrotState.z += move[2];
+      break;
+    }
+  }
+
+  // --- Ограничение движения морковки в радиусе ---
+  const maxRadius = 2.5;
+  const distanceSq = carrotState.x ** 2 + carrotState.z ** 2;
+  if (distanceSq > maxRadius ** 2) {
+    const distance = Math.sqrt(distanceSq);
+    carrotState.x = (carrotState.x / distance) * maxRadius;
+    carrotState.z = (carrotState.z / distance) * maxRadius;
+  }
+
+  // --- Зафиксировать изменение сцены ---
+  sceneOptions.changed = sceneOptions.changed === 1 ? 0 : 1;
+},
 
 
   async initialize(gl: WebGL2RenderingContext, sceneOptions: WebGLSceneOptionsType) {
@@ -331,15 +289,14 @@ export const KR: WorkType = {
 
     try {
       const program = createShaderProgram(gl, vsSourceModel, fsSourceModel);
-      // === Загрузка фоновой текстуры ===
+
+      // === Фон (сфера) ===
       skyTexture = await createTextureFromData(
         gl,
         await (await fetch("/textures/bcg.jpg")).arrayBuffer(),
         "image/jpeg"
       );
-
-      // === Создаём сферу фона ===
-      const skyPart = createSkySphere(100, 64, 32); // очень большая сфера
+      const skyPart = createSkySphere(100, 64, 32);
       const skyBuffers = setupModelPartBuffers(gl, skyPart);
       const skyModelPart: RenderModelPart = {
         buffers: skyBuffers,
@@ -347,104 +304,61 @@ export const KR: WorkType = {
         color: [1.0, 1.0, 1.0, 1.0],
         useTexture: true,
       };
-
       skySphere = {
         parts: [skyModelPart],
-        program,
-        modelMatrix: mat4.create(), // не нужна — будет отдельная отрисовка
-      };
-
-
-      const carrotModel = await loadGLB("/models/carrot.glb");
-      const cauldronModel = await loadGLB("/models/witch_cauldron.glb");
-      const bubbleModel = await loadGLB("/models/bubbles_3.glb");
-      const coffeeModel = await loadGLB("/models/coffee.glb");
-      const coffeeParts = await createModelParts(gl, coffeeModel, program);
-      const allBubbleParts = await createModelParts(gl, bubbleModel, program);
-
-      // 🔍 Логируем геометрию котла — посмотрим вершины
-      const firstPart = cauldronModel.parts[0];
-      const positions = firstPart.vertices;
-
-      let minX = Infinity, maxX = -Infinity;
-      let minY = Infinity, maxY = -Infinity;
-      let minZ = Infinity, maxZ = -Infinity;
-
-      for (let i = 0; i < positions.length; i += 3) {
-        const x = positions[i];
-        const y = positions[i + 1];
-        const z = positions[i + 2];
-
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
-        minZ = Math.min(minZ, z);
-        maxZ = Math.max(maxZ, z);
-      }
-
-      console.log("Bounding box котла (локальные координаты):", {
-        x: [minX, maxX],
-        y: [minY, maxY],
-        z: [minZ, maxZ],
-        size: {
-          width: maxX - minX,
-          height: maxY - minY,
-          depth: maxZ - minZ,
-        },
-      });
-
-
-      // Берём ТОЛЬКО ОДИН пузырь — например, первый
-      const singleBubblePart = allBubbleParts[0]; // ← это и есть один пузырь
-
-      // Создаём специальную модель только для одного пузыря
-      const bubbleTemplate: RenderModelType = {
-        parts: [singleBubblePart],
         program,
         modelMatrix: mat4.create(),
       };
 
+      // === Загрузка моделей ===
+      const [carrotModel, cauldronModel, bubbleModel, coffeeModel] = await Promise.all([
+        loadGLB("/models/carrot.glb"),
+        loadGLB("/models/witch_cauldron.glb"),
+        loadGLB("/models/bubbles_3.glb"),
+        loadGLB("/models/coffee.glb"),
+      ]);
 
+      // Лог: границы котла
+      const firstPart = cauldronModel.parts[0];
+      const positions = firstPart.vertices;
+      let [minX, maxX, minY, maxY, minZ, maxZ] = [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity];
+      for (let i = 0; i < positions.length; i += 3) {
+        minX = Math.min(minX, positions[i]);
+        maxX = Math.max(maxX, positions[i]);
+        minY = Math.min(minY, positions[i + 1]);
+        maxY = Math.max(maxY, positions[i + 1]);
+        minZ = Math.min(minZ, positions[i + 2]);
+        maxZ = Math.max(maxZ, positions[i + 2]);
+      }
+      console.log("Bounding box котла:", { x: [minX, maxX], y: [minY, maxY], z: [minZ, maxZ] });
+
+      // Подготовка частей
+      const [carrotParts, cauldronParts, allBubbleParts, coffeeParts] = await Promise.all([
+        createModelParts(gl, carrotModel, program),
+        createModelParts(gl, cauldronModel, program),
+        createModelParts(gl, bubbleModel, program),
+        createModelParts(gl, coffeeModel, program),
+      ]);
+
+      // Шаблон одного пузыря
+      const bubbleTemplate: RenderModelType = {
+        parts: [allBubbleParts[0]],
+        program,
+        modelMatrix: mat4.create(),
+      };
 
       // Матрицы
       const carrotMatrix = mat4.create();
-      mat4.translate(carrotMatrix, carrotMatrix, [carrotState.x, carrotState.y, carrotState.z]);
-
       const cauldronMatrix = mat4.create();
       mat4.translate(cauldronMatrix, cauldronMatrix, [0, 0, 0]);
       mat4.scale(cauldronMatrix, cauldronMatrix, [1.0, 1.0, 1.0]);
 
-      const bubbleMatrix = mat4.create();
-      const bubbleParts = await createModelParts(gl, bubbleModel, program);
-
-
-      // Части моделей
-      const carrotParts = await createModelParts(gl, carrotModel, program);
-      const cauldronParts = await createModelParts(gl, cauldronModel, program);
-
-      // Инициализация
       modelData = {
-        carrot: {
-          parts: carrotParts,
-          program,
-          modelMatrix: carrotMatrix,
-        },
-        cauldron: {
-          parts: cauldronParts,
-          program,
-          modelMatrix: cauldronMatrix,
-        },
+        carrot: { parts: carrotParts, program, modelMatrix: carrotMatrix },
+        cauldron: { parts: cauldronParts, program, modelMatrix: cauldronMatrix },
         bubble: bubbleTemplate,
-        coffee: {
-          parts: coffeeParts,
-          program,
-          modelMatrix: mat4.create(),
-        }
+        coffee: { parts: coffeeParts, program, modelMatrix: mat4.create() },
       };
-
-
-      globalCarrot = modelData.carrot;
 
       sceneOptions.ready = true;
       const canvas = gl.canvas as HTMLCanvasElement;
@@ -452,19 +366,14 @@ export const KR: WorkType = {
     } catch (e) {
       console.error("Ошибка инициализации сцены:", e);
       sceneOptions.ready = false;
-      sceneOptions.changed = (sceneOptions.changed === 1) ? 0 : 1;
+      sceneOptions.changed = sceneOptions.changed === 1 ? 0 : 1;
     }
   },
 
   render(gl: WebGL2RenderingContext, sceneOptions: WebGLSceneOptionsType) {
     if (!sceneOptions.ready || !modelData) return;
 
-    const carrotData = modelData.carrot;
-    const cauldronData = modelData.cauldron;
-
-    if (!carrotData || !cauldronData) return;
-
-    const program = carrotData.program;
+    const program = modelData.carrot.program;
     const projectionMatrix = mat4.create();
     const viewMatrix = mat4.create();
     const modelViewMatrix = mat4.create();
@@ -473,11 +382,9 @@ export const KR: WorkType = {
     const aspect = gl.canvas.width / gl.canvas.height;
     mat4.perspective(projectionMatrix, (45 * Math.PI) / 180, aspect, 0.1, 100);
 
-    // Сферические координаты
+    // === Обновление камеры ===
     const thetaRad = (cameraTheta * Math.PI) / 180;
     const phiRad = (cameraPhi * Math.PI) / 180;
-
-
     const camX = cameraRadius * Math.sin(phiRad) * Math.cos(thetaRad) + orbitOffsetX;
     const camZ = cameraRadius * Math.sin(phiRad) * Math.sin(thetaRad) + orbitOffsetZ;
     const camY = cameraRadius * Math.cos(phiRad);
@@ -487,81 +394,59 @@ export const KR: WorkType = {
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // === Рендерим фон (sky sphere) ===
+    // === Рендер фона ===
     if (skySphere && skyTexture) {
-      gl.depthMask(false);  // фон не пишет в глубину
+      gl.depthMask(false);
       gl.disable(gl.DEPTH_TEST);
 
       const skyPart = skySphere.parts[0];
-
-      // Убираем позицию камеры — фон всегда в центре мира
       const skyViewMatrix = mat4.clone(viewMatrix);
       skyViewMatrix[12] = 0;
       skyViewMatrix[13] = 0;
       skyViewMatrix[14] = 0;
 
       gl.useProgram(program);
-
-      // Передаём матрицы отдельно
       gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, skyViewMatrix);
       gl.uniformMatrix4fv(gl.getUniformLocation(program, "uProjectionMatrix"), false, projectionMatrix);
-      gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, mat3.create()); // не используется
+      gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, mat3.create());
       gl.uniform4fv(gl.getUniformLocation(program, "uBaseColor"), [1.0, 1.0, 1.0, 1.0]);
       gl.uniform1i(gl.getUniformLocation(program, "uUseTexture"), 1);
-
-      gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, skyTexture);
       gl.uniform1i(gl.getUniformLocation(program, "uSampler"), 0);
-
       renderModelParts(gl, program, [skyPart]);
 
-      // Восстанавливаем глубину
       gl.enable(gl.DEPTH_TEST);
       gl.depthMask(true);
     }
 
-
     gl.useProgram(program);
-
-    // Общие uniform'ы
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "uProjectionMatrix"), false, projectionMatrix);
     gl.uniform3fv(gl.getUniformLocation(program, "uLightColor"), [1.0, 0.9, 0.7]);
 
-    // === Рендер котла ===
-    mat4.multiply(modelViewMatrix, viewMatrix, cauldronData.modelMatrix);
+    // === Котёл ===
+    mat4.multiply(modelViewMatrix, viewMatrix, modelData.cauldron.modelMatrix);
     mat3.normalFromMat4(normalMatrix, modelViewMatrix);
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, modelViewMatrix);
     gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, normalMatrix);
-    renderModelParts(gl, program, cauldronData.parts);
+    renderModelParts(gl, program, modelData.cauldron.parts);
 
-    // === Проверка: морковка достигла дна — запуск пузырьков ===
+    // === Запуск пузырьков при попадании ===
     if (
       !carrotState.falling &&
       carrotState.y <= carrotBottom &&
-      !bubblesStarted
+      !bubblesStarted &&
+      Math.hypot(carrotState.x, carrotState.z) < 0.6
     ) {
-      // Проверка попадания
-      if (Math.hypot(carrotState.x, carrotState.z) < 0.6) {
-        // Успешное попадание
-        bubblesActive = true;
-        bubblesStarted = true;
-        for (let i = 0; i < 5; i++) spawnBubble();
-      } else {
-        // Морковка упала мимо котла — можно добавить эффект?
-        console.log("Морковка промахнулась!");
-      }
+      bubblesActive = true;
+      bubblesStarted = true;
+      for (let i = 0; i < 5; i++) spawnBubble();
     }
 
-    // === Анимация готовки зелья ===
+    // === Анимация варки зелья → кофе ===
     if (bubblesStarted && !coffeeState.visible && sceneOptions.time) {
-      const brewDuration = 5.0; // секунд
       const brewElapsed = sceneOptions.time - (carrotState.startTime || sceneOptions.time);
-
-      if (brewElapsed >= brewDuration) {
-        // Завершаем кипение
+      if (brewElapsed >= BREW_DURATION) {
         bubblesActive = false;
-
-        // Запускаем анимацию кофе
         coffeeState.visible = true;
         coffeeStartTime = sceneOptions.time;
       }
@@ -569,84 +454,63 @@ export const KR: WorkType = {
 
     // === Анимация кофе ===
     if (coffeeState.visible && sceneOptions.time) {
-      const flyDuration = 2.0; // секунд подъёма
       const elapsed = coffeeStartTime ? sceneOptions.time - coffeeStartTime : 0;
-      const flyT = Math.min(elapsed / flyDuration, 1);
-
-      // Поднимается с ускорением
+      const flyT = Math.min(elapsed / COFFEE_FLY_DURATION, 1);
       coffeeState.y = -0.5 + flyT * 1.5;
 
-      // Обновляем матрицу
-      const coffeeData = modelData!.coffee;
-      mat4.identity(coffeeData.modelMatrix);
-      mat4.translate(coffeeData.modelMatrix, coffeeData.modelMatrix, [0, coffeeState.y, 0]);
-      mat4.rotateX(coffeeData.modelMatrix, coffeeData.modelMatrix, -Math.PI / 2);
-      mat4.scale(coffeeData.modelMatrix, coffeeData.modelMatrix, [0.03, 0.03, 0.03]);
+      mat4.identity(modelData.coffee.modelMatrix);
+      mat4.translate(modelData.coffee.modelMatrix, modelData.coffee.modelMatrix, [0, coffeeState.y, 0]);
+      mat4.rotateX(modelData.coffee.modelMatrix, modelData.coffee.modelMatrix, -Math.PI / 2);
+      mat4.scale(modelData.coffee.modelMatrix, modelData.coffee.modelMatrix, [0.03, 0.03, 0.03]);
     }
 
-
-    // === Обновление и рендер пузырьков ===
-    if (bubblesActive) {
-      if (sceneOptions.time) updateBubbles(sceneOptions.time);
+    // === Пузырьки ===
+    if (bubblesActive && sceneOptions.time) {
+      updateBubbles(sceneOptions.time);
       renderBubbles(gl, program, viewMatrix, projectionMatrix, normalMatrix);
     }
 
-
-    // === Анимация падения с гравитацией ===
+    // === Падение морковки ===
     if (carrotState.falling && carrotState.y > carrotBottom && sceneOptions.time) {
       const t = sceneOptions.time - (carrotState.startTime || sceneOptions.time);
-
-      // Гравитация: y = y0 + v0*t + 0.5*g*t²
-      const g = 1.8;           // ускорение (подбирается визуально)
-      const initialY = 2;
-      let newY = initialY - 0.5 * g * t * t;
-
-      // Ограничиваем падение до дна
+      const g = 1.8;
+      const newY = 2 - 0.5 * g * t * t;
+      carrotState.y = Math.max(newY, carrotBottom);
       if (newY <= carrotBottom) {
-        newY = carrotBottom;
         carrotState.falling = false;
         carrotState.visible = false;
       }
-
-      carrotState.y = newY;
     }
 
-    // === Обновляем модель морковки ===
-    mat4.identity(carrotData.modelMatrix);
-    mat4.translate(carrotData.modelMatrix, carrotData.modelMatrix, [carrotState.x, carrotState.y, carrotState.z]);
-    mat4.scale(carrotData.modelMatrix, carrotData.modelMatrix, [0.02, 0.02, 0.02]);
+    // === Обновление морковки ===
+    mat4.identity(modelData.carrot.modelMatrix);
+    mat4.translate(modelData.carrot.modelMatrix, modelData.carrot.modelMatrix, [carrotState.x, carrotState.y, carrotState.z]);
+    mat4.scale(modelData.carrot.modelMatrix, modelData.carrot.modelMatrix, [0.02, 0.02, 0.02]);
 
-    // === Рендер морковки (если видна) ===
+    // === Рендер морковки ===
     if (carrotState.visible) {
-      mat4.multiply(modelViewMatrix, viewMatrix, carrotData.modelMatrix);
+      mat4.multiply(modelViewMatrix, viewMatrix, modelData.carrot.modelMatrix);
       mat3.normalFromMat4(normalMatrix, modelViewMatrix);
       gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, modelViewMatrix);
       gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, normalMatrix);
-      renderModelParts(gl, program, carrotData.parts);
+      renderModelParts(gl, program, modelData.carrot.parts);
     }
 
-    // === Рендер кофе (если виден) ===
-    if (coffeeState.visible && modelData?.coffee) {
-      const coffeeData = modelData.coffee;
-      mat4.multiply(modelViewMatrix, viewMatrix, coffeeData.modelMatrix);
+    // === Рендер кофе ===
+    if (coffeeState.visible) {
+      mat4.multiply(modelViewMatrix, viewMatrix, modelData.coffee.modelMatrix);
       mat3.normalFromMat4(normalMatrix, modelViewMatrix);
-
       gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, modelViewMatrix);
       gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, normalMatrix);
-
       gl.uniform4fv(gl.getUniformLocation(program, "uBaseColor"), [0.6, 0.4, 0.3, 1.0]);
       gl.uniform1i(gl.getUniformLocation(program, "uUseTexture"), 0);
-
-      renderModelParts(gl, program, coffeeData.parts);
+      renderModelParts(gl, program, modelData.coffee.parts);
     }
-
-
   },
 
-
   dispose(gl: WebGL2RenderingContext) {
-    // Очистка буферов, текстур, программ — при необходимости
     modelData = null;
-    globalCarrot = null;
+    skyTexture = null;
+    skySphere = null;
   },
 };
