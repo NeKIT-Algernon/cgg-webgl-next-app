@@ -116,6 +116,52 @@ let boilerModel: GLTFModel | null = null;
 let carrotModel: GLTFModel | null = null;
 const MAX_BUBBLES = 20;
 
+export function createSkySphere(radius: number, slices: number, stacks: number): GLTFModelPart {
+  const vertices: number[] = [];
+  const texCoords: number[] = [];
+  const indices: number[] = [];
+
+  for (let i = 0; i <= stacks; i++) {
+    const phi = Math.PI * i / stacks;
+    const sinPhi = Math.sin(phi);
+    const cosPhi = Math.cos(phi);
+
+    for (let j = 0; j <= slices; j++) {
+      const theta = 2 * Math.PI * j / slices;
+      const sinTheta = Math.sin(theta);
+      const cosTheta = Math.cos(theta);
+
+      const x = radius * sinPhi * cosTheta;
+      const y = radius * cosPhi;
+      const z = radius * sinPhi * sinTheta;
+
+      vertices.push(x, y, z);
+      texCoords.push(j / slices, i / stacks);
+    }
+  }
+
+  for (let i = 0; i < stacks; i++) {
+    for (let j = 0; j < slices; j++) {
+      const first = i * (slices + 1) + j;
+      const second = first + slices + 1;
+
+      indices.push(first, second, first + 1);
+      indices.push(second, second + 1, first + 1);
+    }
+  }
+
+  return {
+    vertices,
+    normals: vertices.slice(), // нормали = направление из центра
+    texCoords,
+    indices,
+    textureData: null,
+    mimeType: "image/png",
+    color: [1.0, 1.0, 1.0, 1.0],
+  };
+}
+
+
 export async function createModelParts(
   gl: WebGL2RenderingContext,
   model: GLTFModel,
@@ -140,7 +186,7 @@ export async function createModelParts(
   return parts;
 }
 
-function createTextureFromData(
+export function createTextureFromData(
   gl: WebGL2RenderingContext,
   data: ArrayBuffer,
   mimeType: string

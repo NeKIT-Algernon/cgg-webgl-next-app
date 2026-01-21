@@ -12,12 +12,16 @@ import {
   RenderModelPart,
   RenderModelType,
   CarrotState,
+  createSkySphere,
+  createTextureFromData
 } from "./kr-src";
 
 // === Глобальные переменные ===
 
 const carrotBottom = 0.2;
 
+let skySphere: RenderModelType | null = null;
+let skyTexture: WebGLTexture | null = null;
 
 // === Глобальные переменные ===
 let cameraTheta = 45;
@@ -83,6 +87,7 @@ function spawnBubble() {
     swayOffset: Math.random() * Math.PI * 2,
   });
 }
+
 
 function updateBubbles(time: number) {
   // Генерация новых пузырьков
@@ -248,13 +253,13 @@ export const KR: WorkType = {
 
     switch (event.code) {
       case "ArrowUp": {
-        const move = vec3.scale(vec3.create(), forward, speed*3);
+        const move = vec3.scale(vec3.create(), forward, speed * 3);
         carrotState.x += move[0];
         carrotState.z += move[2];
         break;
       }
       case "ArrowDown": {
-        const move = vec3.scale(vec3.create(), forward, -speed*3);
+        const move = vec3.scale(vec3.create(), forward, -speed * 3);
         carrotState.x += move[0];
         carrotState.z += move[2];
         break;
@@ -281,6 +286,29 @@ export const KR: WorkType = {
 
     try {
       const program = createShaderProgram(gl, vsSourceModel, fsSourceModel);
+      // === Загрузка фоновой текстуры ===
+      skyTexture = await createTextureFromData(
+        gl,
+        await (await fetch("/textures/bcg.jpg")).arrayBuffer(),
+        "image/jpeg"
+      );
+
+      // === Создаём сферу фона ===
+      const skyPart = createSkySphere(100, 64, 32); // очень большая сфера
+      const skyBuffers = setupModelPartBuffers(gl, skyPart);
+      const skyModelPart: RenderModelPart = {
+        buffers: skyBuffers,
+        texture: skyTexture,
+        color: [1.0, 1.0, 1.0, 1.0],
+        useTexture: true,
+      };
+
+      skySphere = {
+        parts: [skyModelPart],
+        program,
+        modelMatrix: mat4.create(), // не нужна — будет отдельная отрисовка
+      };
+
 
       const carrotModel = await loadGLB("/models/carrot.glb");
       const cauldronModel = await loadGLB("/models/witch_cauldron.glb");
@@ -405,6 +433,40 @@ export const KR: WorkType = {
 
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // === Рендерим фон (sky sphere) ===
+if (skySphere && skyTexture) {
+  gl.depthMask(false);  // фон не пишет в глубину
+  gl.disable(gl.DEPTH_TEST);
+
+  const skyPart = skySphere.parts[0];
+
+  // Убираем позицию камеры — фон всегда в центре мира
+  const skyViewMatrix = mat4.clone(viewMatrix);
+  skyViewMatrix[12] = 0;
+  skyViewMatrix[13] = 0;
+  skyViewMatrix[14] = 0;
+
+  gl.useProgram(program);
+
+  // Передаём матрицы отдельно
+  gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, skyViewMatrix);
+  gl.uniformMatrix4fv(gl.getUniformLocation(program, "uProjectionMatrix"), false, projectionMatrix);
+  gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, mat3.create()); // не используется
+  gl.uniform4fv(gl.getUniformLocation(program, "uBaseColor"), [1.0, 1.0, 1.0, 1.0]);
+  gl.uniform1i(gl.getUniformLocation(program, "uUseTexture"), 1);
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, skyTexture);
+  gl.uniform1i(gl.getUniformLocation(program, "uSampler"), 0);
+
+  renderModelParts(gl, program, [skyPart]);
+
+  // Восстанавливаем глубину
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthMask(true);
+}
+
 
     gl.useProgram(program);
 
