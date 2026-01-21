@@ -18,6 +18,21 @@ import {
 
 // === Глобальные переменные ===
 
+let cameraTargetOffset = [0, 0]; // [x, y] смещение центра вращения
+
+
+let orbitOffsetX = 0;
+let orbitOffsetZ = 0;
+const orbitSpeed = 1;
+
+
+let coffeeState: { visible: boolean; y: number } = {
+  visible: false,
+  y: -0.5,
+};
+let coffeeStartTime: number | null = null;
+
+
 const carrotBottom = 0.2;
 
 let skySphere: RenderModelType | null = null;
@@ -63,6 +78,7 @@ let modelData: {
   carrot: RenderModelType;
   cauldron: RenderModelType;
   bubble: RenderModelType;
+  coffee: RenderModelType;
 } | null = null;
 
 
@@ -173,6 +189,14 @@ export const KR: WorkType = {
       bubblesActive = false;
       bubblesStarted = false; // 🔁 сбрасываем
 
+      cameraTargetOffset = [0, 0];
+
+
+      coffeeState.visible = false;
+      coffeeState.y = -0.5;
+      coffeeStartTime = null;
+
+
       carrotState.visible = true;
 
 
@@ -185,8 +209,8 @@ export const KR: WorkType = {
     const phiRad = (cameraPhi * Math.PI) / 180;
 
     const camX = cameraRadius * Math.sin(phiRad) * Math.cos(thetaRad);
-    const camY = cameraRadius * Math.cos(phiRad);
     const camZ = cameraRadius * Math.sin(phiRad) * Math.sin(thetaRad);
+    const camY = cameraRadius * Math.cos(phiRad);
 
     const eye = vec3.fromValues(camX, camY, camZ);
     const center = vec3.fromValues(0, 0, 0);
@@ -200,6 +224,20 @@ export const KR: WorkType = {
     // === Управление камерой — как раньше ===
     const camSpeed = 5;
     switch (event.code) {
+      case "KeyF": // Камера влево → сцена "двигается вправо"
+        cameraTargetOffset[0] -= 0.2;
+        break;
+      case "KeyH": // Камера вправо → сцена "двигается влево"
+        cameraTargetOffset[0] += 0.2;
+        break;
+      case "KeyG": // Камера вверх → сцена "двигается вниз"
+        cameraTargetOffset[1] -= 0.2;
+        break;
+      case "KeyT": // Камера вниз → сцена "двигается вверх"
+        cameraTargetOffset[1] += 0.2;
+        break;
+
+
       case "KeyW":
         cameraPhi = Math.max(10, cameraPhi - camSpeed);
         break;
@@ -313,6 +351,8 @@ export const KR: WorkType = {
       const carrotModel = await loadGLB("/models/carrot.glb");
       const cauldronModel = await loadGLB("/models/witch_cauldron.glb");
       const bubbleModel = await loadGLB("/models/bubbles_3.glb");
+      const coffeeModel = await loadGLB("/models/coffee.glb");
+      const coffeeParts = await createModelParts(gl, coffeeModel, program);
       const allBubbleParts = await createModelParts(gl, bubbleModel, program);
 
       // 🔍 Логируем геометрию котла — посмотрим вершины
@@ -388,7 +428,12 @@ export const KR: WorkType = {
           program,
           modelMatrix: cauldronMatrix,
         },
-        bubble: bubbleTemplate
+        bubble: bubbleTemplate,
+        coffee: {
+          parts: coffeeParts,
+          program,
+          modelMatrix: mat4.create(),
+        }
       };
 
 
@@ -425,47 +470,48 @@ export const KR: WorkType = {
     const thetaRad = (cameraTheta * Math.PI) / 180;
     const phiRad = (cameraPhi * Math.PI) / 180;
 
-    const camX = cameraRadius * Math.sin(phiRad) * Math.cos(thetaRad);
-    const camY = cameraRadius * Math.cos(phiRad);
-    const camZ = cameraRadius * Math.sin(phiRad) * Math.sin(thetaRad);
 
-    mat4.lookAt(viewMatrix, [camX, camY, camZ], [0, 0, 0], [0, 1, 0]);
+    const camX = cameraRadius * Math.sin(phiRad) * Math.cos(thetaRad) + orbitOffsetX;
+    const camZ = cameraRadius * Math.sin(phiRad) * Math.sin(thetaRad) + orbitOffsetZ;
+    const camY = cameraRadius * Math.cos(phiRad);
+
+    mat4.lookAt(viewMatrix, [camX, camY, camZ], [cameraTargetOffset[0], cameraTargetOffset[1], 0], [0, 1, 0]);
 
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // === Рендерим фон (sky sphere) ===
-if (skySphere && skyTexture) {
-  gl.depthMask(false);  // фон не пишет в глубину
-  gl.disable(gl.DEPTH_TEST);
+    if (skySphere && skyTexture) {
+      gl.depthMask(false);  // фон не пишет в глубину
+      gl.disable(gl.DEPTH_TEST);
 
-  const skyPart = skySphere.parts[0];
+      const skyPart = skySphere.parts[0];
 
-  // Убираем позицию камеры — фон всегда в центре мира
-  const skyViewMatrix = mat4.clone(viewMatrix);
-  skyViewMatrix[12] = 0;
-  skyViewMatrix[13] = 0;
-  skyViewMatrix[14] = 0;
+      // Убираем позицию камеры — фон всегда в центре мира
+      const skyViewMatrix = mat4.clone(viewMatrix);
+      skyViewMatrix[12] = 0;
+      skyViewMatrix[13] = 0;
+      skyViewMatrix[14] = 0;
 
-  gl.useProgram(program);
+      gl.useProgram(program);
 
-  // Передаём матрицы отдельно
-  gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, skyViewMatrix);
-  gl.uniformMatrix4fv(gl.getUniformLocation(program, "uProjectionMatrix"), false, projectionMatrix);
-  gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, mat3.create()); // не используется
-  gl.uniform4fv(gl.getUniformLocation(program, "uBaseColor"), [1.0, 1.0, 1.0, 1.0]);
-  gl.uniform1i(gl.getUniformLocation(program, "uUseTexture"), 1);
+      // Передаём матрицы отдельно
+      gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, skyViewMatrix);
+      gl.uniformMatrix4fv(gl.getUniformLocation(program, "uProjectionMatrix"), false, projectionMatrix);
+      gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, mat3.create()); // не используется
+      gl.uniform4fv(gl.getUniformLocation(program, "uBaseColor"), [1.0, 1.0, 1.0, 1.0]);
+      gl.uniform1i(gl.getUniformLocation(program, "uUseTexture"), 1);
 
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, skyTexture);
-  gl.uniform1i(gl.getUniformLocation(program, "uSampler"), 0);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, skyTexture);
+      gl.uniform1i(gl.getUniformLocation(program, "uSampler"), 0);
 
-  renderModelParts(gl, program, [skyPart]);
+      renderModelParts(gl, program, [skyPart]);
 
-  // Восстанавливаем глубину
-  gl.enable(gl.DEPTH_TEST);
-  gl.depthMask(true);
-}
+      // Восстанавливаем глубину
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthMask(true);
+    }
 
 
     gl.useProgram(program);
@@ -497,6 +543,38 @@ if (skySphere && skyTexture) {
         // Морковка упала мимо котла — можно добавить эффект?
         console.log("Морковка промахнулась!");
       }
+    }
+
+    // === Анимация готовки зелья ===
+    if (bubblesStarted && !coffeeState.visible && sceneOptions.time) {
+      const brewDuration = 5.0; // секунд
+      const brewElapsed = sceneOptions.time - (carrotState.startTime || sceneOptions.time);
+
+      if (brewElapsed >= brewDuration) {
+        // Завершаем кипение
+        bubblesActive = false;
+
+        // Запускаем анимацию кофе
+        coffeeState.visible = true;
+        coffeeStartTime = sceneOptions.time;
+      }
+    }
+
+    // === Анимация кофе ===
+    if (coffeeState.visible && sceneOptions.time) {
+      const flyDuration = 2.0; // секунд подъёма
+      const elapsed = coffeeStartTime ? sceneOptions.time - coffeeStartTime : 0;
+      const flyT = Math.min(elapsed / flyDuration, 1);
+
+      // Поднимается с ускорением
+      coffeeState.y = -0.5 + flyT * 1.5;
+
+      // Обновляем матрицу
+      const coffeeData = modelData!.coffee;
+      mat4.identity(coffeeData.modelMatrix);
+      mat4.translate(coffeeData.modelMatrix, coffeeData.modelMatrix, [0, coffeeState.y, 0]);
+      mat4.rotateX(coffeeData.modelMatrix, coffeeData.modelMatrix, -Math.PI / 2);
+      mat4.scale(coffeeData.modelMatrix, coffeeData.modelMatrix, [0.03, 0.03, 0.03]);
     }
 
 
@@ -537,6 +615,22 @@ if (skySphere && skyTexture) {
       gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, normalMatrix);
       renderModelParts(gl, program, carrotData.parts);
     }
+
+    // === Рендер кофе (если виден) ===
+    if (coffeeState.visible && modelData?.coffee) {
+      const coffeeData = modelData.coffee;
+      mat4.multiply(modelViewMatrix, viewMatrix, coffeeData.modelMatrix);
+      mat3.normalFromMat4(normalMatrix, modelViewMatrix);
+
+      gl.uniformMatrix4fv(gl.getUniformLocation(program, "uModelViewMatrix"), false, modelViewMatrix);
+      gl.uniformMatrix3fv(gl.getUniformLocation(program, "uNormalMatrix"), false, normalMatrix);
+
+      gl.uniform4fv(gl.getUniformLocation(program, "uBaseColor"), [0.6, 0.4, 0.3, 1.0]);
+      gl.uniform1i(gl.getUniformLocation(program, "uUseTexture"), 0);
+
+      renderModelParts(gl, program, coffeeData.parts);
+    }
+
 
   },
 
