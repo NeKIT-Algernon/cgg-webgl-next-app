@@ -20,6 +20,10 @@ import {
 
 let cameraTargetOffset = [0, 0]; // [x, y] смещение центра вращения
 
+const DEFAULT_CAMERA_THETA = 45;
+const DEFAULT_CAMERA_PHI = 60;
+const DEFAULT_CAMERA_RADIUS = 8;
+const DEFAULT_TARGET_OFFSET = [0, 0] as [number, number];
 
 let orbitOffsetX = 0;
 let orbitOffsetZ = 0;
@@ -46,7 +50,7 @@ let cameraRadius = 8;
 let carrotState: CarrotState = {
   x: 0,
   z: 0,
-  y: 1.5,
+  y: 2,
   falling: false,
   speedY: 0,
   visible: true, // ← по умолчанию видна
@@ -224,17 +228,20 @@ export const KR: WorkType = {
     // === Управление камерой — как раньше ===
     const camSpeed = 5;
     switch (event.code) {
-      case "KeyF": // Камера влево → сцена "двигается вправо"
-        cameraTargetOffset[0] -= 0.2;
+      case "KeyE":
+        cameraTheta = DEFAULT_CAMERA_THETA;
+        cameraPhi = DEFAULT_CAMERA_PHI;
+        cameraRadius = DEFAULT_CAMERA_RADIUS;
+        cameraTargetOffset[0] = DEFAULT_TARGET_OFFSET[0];
+        cameraTargetOffset[1] = DEFAULT_TARGET_OFFSET[1];
+        sceneOptions.changed = sceneOptions.changed === 1 ? 0 : 1;
         break;
-      case "KeyH": // Камера вправо → сцена "двигается влево"
-        cameraTargetOffset[0] += 0.2;
-        break;
+
       case "KeyG": // Камера вверх → сцена "двигается вниз"
-        cameraTargetOffset[1] -= 0.2;
+        cameraTargetOffset[1] = Math.max(cameraTargetOffset[1] - 0.2, -2);
         break;
       case "KeyT": // Камера вниз → сцена "двигается вверх"
-        cameraTargetOffset[1] += 0.2;
+        cameraTargetOffset[1] = Math.min(cameraTargetOffset[1] + 0.2, 2);
         break;
 
 
@@ -585,23 +592,25 @@ export const KR: WorkType = {
     }
 
 
-    // === Анимация падения ===
+    // === Анимация падения с гравитацией ===
     if (carrotState.falling && carrotState.y > carrotBottom && sceneOptions.time) {
-      const elapsed = sceneOptions.time - (carrotState.startTime || sceneOptions.time);
-      const fallDuration = 1.5; // секунды
-      const targetY = carrotBottom;
+      const t = sceneOptions.time - (carrotState.startTime || sceneOptions.time);
 
-      // Линейная интерполяция (можно улучшить на физике)
-      const t = Math.min(elapsed / fallDuration, 1);
-      const newY = 1.5 - t * (1.5 - targetY);
-      carrotState.y = newY;
+      // Гравитация: y = y0 + v0*t + 0.5*g*t²
+      const g = 1.8;           // ускорение (подбирается визуально)
+      const initialY = 2;
+      let newY = initialY - 0.5 * g * t * t;
 
-      if (t >= 1) {
-        carrotState.y = targetY;
+      // Ограничиваем падение до дна
+      if (newY <= carrotBottom) {
+        newY = carrotBottom;
         carrotState.falling = false;
         carrotState.visible = false;
       }
+
+      carrotState.y = newY;
     }
+
     // === Обновляем модель морковки ===
     mat4.identity(carrotData.modelMatrix);
     mat4.translate(carrotData.modelMatrix, carrotData.modelMatrix, [carrotState.x, carrotState.y, carrotState.z]);
